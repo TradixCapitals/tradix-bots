@@ -1,0 +1,26 @@
+# Mots qui rendent une annonce importante
+# Une entrée par ligne, en anglais (comme dans les titres d'origine).
+# Les lignes qui commencent par # sont ignorées. Modifie sans arrêter le bot.
+Fed
+FOMC
+Federal Reserve
+Powell
+rate decision
+rate cut
+rate hike
+NFP
+nonfarm
+payrolls
+ADP
+CPI
+PCE
+PPI
+unemployment
+jobless
+Trump
+shutdown
+emergency
+ISM Services PMI
+ISM Non-Manufacturing PMI
+ISM Manufacturing PMI
+S&P Global Services PMI

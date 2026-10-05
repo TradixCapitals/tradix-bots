@@ -1,0 +1,53 @@
+# Repères du marché suivi
+# Une donnée chiffrée n'est envoyée que si elle contient l'un de ces repères (pays, banque centrale, indice...).
+# Une entrée par ligne, en anglais (comme dans les titres d'origine).
+# Les lignes qui commencent par # sont ignorées. Modifie sans arrêter le bot.
+US
+U.S.
+USA
+United States
+American
+Fed
+FOMC
+Federal Reserve
+Powell
+Treasury
+Treasuries
+Trump
+White House
+Wall Street
+S&P 500
+Nasdaq
+Dow
+NFP
+nonfarm
+ADP
+ISM
+Michigan
+Conference Board
+PCE
+jobless claims
+Jobless Claims
+durable goods
+Philadelphia
+Empire State
+Richmond
+Chicago PMI
+Waller
+Williams
+Kashkari
+Bowman
+Jefferson
+Barr
+Logan
+Goolsbee
+Bostic
+Musalem
+Schmid
+Hammack
+Daly
+Collins
+Barkin
+Harker
+Cook
+Miran

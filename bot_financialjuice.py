@@ -1,0 +1,663 @@
+#!/usr/bin/env python3
+"""Bot Telegram : renvoie les nouveaux titres du flux RSS FinancialJuice dans un groupe privé.
+
+Usage (depuis ce dossier) :
+    python3 bot_financialjuice.py --chat-id   affiche l'identifiant du groupe (après /start dans le groupe)
+    python3 bot_financialjuice.py --dry       lit le flux et affiche les titres, sans rien envoyer
+    python3 bot_financialjuice.py --demo      envoie des titres d'exemple (rouge, majuscules, tri US)
+    python3 bot_financialjuice.py --test      envoie un message de test dans le groupe
+    python3 bot_financialjuice.py             lance le bot (Ctrl+C pour arrêter)
+
+Les clés sont lues dans config.env (jamais dans le code).
+Usage strictement privé : ne republie pas ces titres sur un canal public.
+"""
+import html
+import json
+import os
+import re
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+import xml.etree.ElementTree as ET
+from email.utils import parsedate_to_datetime
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(HERE, "config.env")
+SEEN_PATH = os.path.join(HERE, "seen.json")
+INTERVAL = 90          # secondes entre deux lectures du flux (le site limite les lectures trop fréquentes)
+MAX_WAIT = 900         # attente maximale après un refus 429 (15 min)
+KEEP = 500             # nombre d'identifiants mémorisés
+UA = "Mozilla/5.0 (compatible; TradixPrivateBot/1.0)"
+
+
+def load_config():
+    cfg = dict(os.environ)
+    if os.path.exists(CONFIG_PATH):
+        with open(CONFIG_PATH, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    cfg.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+    return cfg
+
+
+CFG = load_config()
+# Mode "cycle" (hébergement GitHub) : le bot tourne N secondes puis s'arrête, relancé toutes les 5 minutes.
+BOT_DIR = os.path.join(HERE, CFG.get("BOT_DIR", "")) if CFG.get("BOT_DIR") else HERE  # dossier des listes de ce bot
+os.makedirs(BOT_DIR, exist_ok=True)
+SEEN_PATH = os.path.join(BOT_DIR, "seen.json")
+DEADLINE = time.time() + int(CFG["CYCLE_SECONDS"]) if CFG.get("CYCLE_SECONDS") else None
+FEED_URL = CFG.get("FEED_URL", "https://www.financialjuice.com/feed.ashx?xy=rss")
+TG_API = CFG.get("TG_API", "https://api.telegram.org")
+TOKEN = CFG.get("TELEGRAM_BOT_TOKEN", "")
+CHAT_ID = CFG.get("TELEGRAM_CHAT_ID", "")
+
+
+def log(msg):
+    print(time.strftime("%H:%M:%S"), msg, flush=True)
+
+
+def http(url, data=None, timeout=20):
+    req = urllib.request.Request(url, data=data, headers={"User-Agent": UA})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.read()
+
+
+FEED_CACHE = CFG.get("FEED_CACHE") or os.path.join(os.path.dirname(HERE), "feed_cache.xml")  # partagé entre les bots du même Mac
+CACHE_TTL = 60  # secondes pendant lesquelles les bots se partagent la même lecture du flux
+
+
+def read_feed():
+    """Une seule lecture du flux pour tous les bots : on réutilise la copie récente si elle existe."""
+    try:
+        if time.time() - os.path.getmtime(FEED_CACHE) < CACHE_TTL:
+            with open(FEED_CACHE, "rb") as f:
+                data = f.read()
+            if data:
+                return data
+    except OSError:
+        pass
+    data = http(FEED_URL)
+    try:
+        tmp = f"{FEED_CACHE}.{os.getpid()}.tmp"
+        with open(tmp, "wb") as f:
+            f.write(data)
+        os.replace(tmp, FEED_CACHE)
+    except OSError:
+        pass
+    return data
+
+
+def fetch_items():
+    root = ET.fromstring(read_feed())
+    items = []
+    for it in root.iter("item"):
+        title = (it.findtext("title") or "").strip()
+        guid = (it.findtext("guid") or it.findtext("link") or title).strip()
+        link = (it.findtext("link") or "").strip()
+        if title and guid:
+            try:  # heure de publication, dans le fuseau de ton Mac
+                hhmm = parsedate_to_datetime(it.findtext("pubDate")).astimezone().strftime("%H:%M")
+            except Exception:
+                hhmm = ""
+            items.append({"id": guid, "title": re.sub(r"^FinancialJuice:\s*", "", title), "link": link, "time": hhmm})
+    return items  # du plus récent au plus ancien
+
+
+def tg(method, **params):
+    url = f"{TG_API}/bot{TOKEN}/{method}"
+    data = urllib.parse.urlencode(params).encode()
+    try:
+        return json.loads(http(url, data))
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", "replace")
+        try:
+            j = json.loads(body)
+        except ValueError:
+            j = {"ok": False, "description": body}
+        j["http"] = e.code
+        return j
+
+
+def send(text, silent=False):
+    for _ in range(3):
+        r = tg("sendMessage", chat_id=CHAT_ID, text=text, parse_mode="HTML", disable_web_page_preview="true",
+               disable_notification="true" if silent else "false")
+        if r.get("ok"):
+            return True
+        wait = (r.get("parameters") or {}).get("retry_after")
+        if r.get("http") == 429 and wait:
+            time.sleep(int(wait) + 1)
+            continue
+        log(f"Telegram a refusé l'envoi : {r.get('description')}")
+        return False
+    return False
+
+
+IGNORER_PATH = os.path.join(BOT_DIR, "ignorer.txt")
+IMPORTANT_PATH = os.path.join(BOT_DIR, "important.txt")
+SILENCIEUX = CFG.get("SILENCIEUX", "oui").lower() != "non"  # titres normaux sans sonnerie, importants avec
+
+IGNORER_DEFAUT = [
+    "Interest Rate Probabilities", "Implied Volatility", "Currency Strength", "Strength Chart",
+]
+IMPORTANT_DEFAUT = [
+    "Fed", "FOMC", "Federal Reserve", "Powell", "rate decision", "rate cut", "rate hike",
+    "NFP", "nonfarm", "payrolls", "ADP", "CPI", "PCE", "PPI", "inflation", "unemployment", "jobless",
+    "ISM", "tariff", "tariffs", "Trump", "Treasury", "gold", "XAU",
+    "Iran", "Israel", "Houthi", "missile", "sanctions", "shutdown", "emergency",
+]
+GARDER_PATH = os.path.join(BOT_DIR, "garder.txt")
+FORT_PATH = os.path.join(BOT_DIR, "fort.txt")
+EXCLURE_PATH = os.path.join(BOT_DIR, "exclure.txt")
+ETIQUETTES_PATH = os.path.join(BOT_DIR, "etiquettes.txt")
+RETIRER_PATH = os.path.join(BOT_DIR, "retirer.txt")
+DEMO_PATH = os.path.join(BOT_DIR, "demo.txt")
+RENOMMER_PATH = os.path.join(BOT_DIR, "renommer.txt")
+GARDER_DEFAUT = [
+    # États-Unis, banque centrale, dollar, taux
+    "US", "U.S.", "USD", "DXY", "United States", "American", "America", "Fed", "FOMC", "Federal Reserve", "Powell",
+    "Treasury", "Treasuries", "yield", "yields", "dollar", "Wall Street", "S&P 500", "Nasdaq", "Dow",
+    "Trump", "White House", "tariff", "tariffs",
+    # données américaines
+    "NFP", "nonfarm", "payrolls", "ADP", "jobless", "unemployment", "CPI", "PCE", "PPI", "ISM", "Michigan",
+    "Conference Board", "durable goods",
+    # or
+    "gold", "XAU", "bullion",
+    # géopolitique qui bouge l'or
+    "Iran", "Israel", "Middle East", "Houthi", "Russia", "Ukraine", "China", "OPEC",
+]
+
+
+def read_terms(path, defaults, titre, explication):
+    """Lit une liste de mots (un par ligne). Crée le fichier avec des valeurs par défaut s'il manque."""
+    if not os.path.exists(path):
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(f"# {titre}\n# {explication}\n# Une entrée par ligne, en anglais (comme dans les titres d'origine).\n"
+                    "# Les lignes qui commencent par # sont ignorées. Modifie sans arrêter le bot.\n")
+            f.write("\n".join(defaults) + "\n")
+    out = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                out.append(line)
+    return out
+
+
+def has_term(terms, title):
+    """Mot entier. Les sigles en majuscules (US, CPI...) sont sensibles à la casse, pour ne pas confondre US et us."""
+    for x in terms:
+        flags = 0 if (x.isupper() and len(x) <= 5) else re.IGNORECASE
+        if re.search(r"(?<!\w)" + re.escape(x) + r"(?!\w)", title, flags):
+            return True
+    return False
+
+
+STRONG_US = [
+    "US", "U.S.", "USA", "United States", "American", "Fed", "FOMC", "Federal Reserve", "Powell", "Treasury", "Treasuries",
+    "Trump", "White House", "Wall Street", "S&P 500", "Nasdaq", "Dow", "NFP", "nonfarm", "ADP", "ISM", "Michigan",
+    "Conference Board", "PCE", "jobless claims", "Jobless Claims", "durable goods", "Philadelphia", "Empire State",
+    "Richmond", "Chicago PMI", "Waller", "Williams", "Kashkari", "Bowman", "Jefferson", "Barr", "Logan", "Goolsbee",
+    "Bostic", "Musalem", "Schmid", "Hammack", "Daly", "Collins", "Barkin", "Harker", "Cook", "Miran",
+]
+NON_US = [
+    "Eurozone", "Euro Zone", "Euro Area", "euro zone", "EU", "ECB", "German", "Germany", "France", "French", "Italian", "Italy",
+    "Spain", "Spanish", "UK", "British", "BoE", "Japan", "Japanese", "BoJ", "Canada", "Canadian", "BoC", "Australia",
+    "Australian", "RBA", "Swiss", "Switzerland", "SNB", "Sweden", "Swedish", "Norway", "Norwegian", "New Zealand", "RBNZ",
+    "India", "Indian", "Brazil", "Mexico", "Mexican", "Turkey", "Turkish", "Taiwan", "Korea", "Korean", "Poland", "Polish",
+    "Hungary", "Czech", "Netherlands", "Dutch", "Belgium", "Austria", "Portugal", "Greece", "Ireland", "Finland",
+]
+
+
+def is_wanted(title):
+    """Si garder.txt contient des entrées, seuls les titres qui en contiennent une sont envoyés.
+    Garde-fous : une donnée chiffrée doit être américaine, et un titre sur un autre pays est écarté sauf lien avec les États-Unis."""
+    terms = read_terms(GARDER_PATH, GARDER_DEFAUT, "Sujets à suivre (concentration États-Unis et or)",
+                       "Seuls les titres qui contiennent l'une de ces expressions sont envoyés. Fichier vide = tout est envoyé.")
+    if not terms:
+        return True
+    strong = read_terms(FORT_PATH, STRONG_US, "Repères du marché suivi",
+                        "Une donnée chiffrée n'est envoyée que si elle contient l'un de ces repères (pays, banque centrale, indice...).")
+    other = read_terms(EXCLURE_PATH, NON_US, "Repères des autres marchés",
+                       "Un titre qui contient l'un de ces mots est écarté, sauf s'il contient aussi un repère du marché suivi.")
+    us = has_term(strong, title)
+    if BLOCK_PARTS.search(title) and not us:  # donnée chiffrée sans marqueur américain (ex. PPI zone euro)
+        return False
+    if has_term(other, title) and not us:  # autre pays, sans lien avec les États-Unis
+        return False
+    return has_term(terms + strong, title)
+
+
+def is_ignored(title):
+    terms = read_terms(IGNORER_PATH, IGNORER_DEFAUT, "Titres à ne pas envoyer",
+                       "Si le titre contient l'une de ces expressions, il est ignoré.")
+    t = title.lower()
+    return any(x.lower() in t for x in terms)
+
+
+def to_float(x):
+    m = re.search(r"-?\d+(?:[.,]\d+)?", x or "")
+    return float(m.group(0).replace(",", ".")) if m else None
+
+
+def is_surprise(title):
+    """Chiffre publié très différent de la prévision (ex. PMI 54.2 contre 51.7 attendu)."""
+    m = BLOCK_PARTS.search(title)
+    if not m:
+        return False
+    actual, forecast = to_float(m.group(1)), to_float(m.group(2))
+    if actual is None or forecast is None:
+        return False
+    return abs(actual - forecast) >= max(0.3, 0.05 * abs(forecast))
+
+
+def is_important(title):
+    terms = read_terms(IMPORTANT_PATH, IMPORTANT_DEFAUT, "Mots qui rendent une annonce importante",
+                       "Titre important = marqué d'un rond rouge, en majuscules, avec notification sonore.")
+    return has_term(terms, title) or is_surprise(title)
+
+
+BLOCK_RE = re.compile(r"(Actual\s+[^\s(]+\s*\(Forecast\s+[^,)]*,\s*Previous\s+[^)]*\))")
+BLOCK_PARTS = re.compile(r"Actual\s+([^\s(]+)\s*\(Forecast\s+([^,)]*),\s*Previous\s+([^)]*)\)")
+TRANSLATE = CFG.get("TRADUCTION", "oui").lower() != "non"
+
+
+def comma(x):
+    return re.sub(r"(\d)\.(\d)", r"\1,\2", x.strip())
+
+
+class TranslationError(Exception):
+    pass
+
+
+_cache = {}
+
+
+LAST_ERRORS = {}
+
+
+def _google_gtx(text):
+    q = urllib.parse.urlencode({"client": "gtx", "sl": "en", "tl": "fr", "dt": "t", "q": text})
+    data = json.loads(http("https://translate.googleapis.com/translate_a/single?" + q, timeout=10))
+    return "".join(part[0] for part in data[0] if part and part[0]).strip()
+
+
+def _google_chrome(text):
+    q = urllib.parse.urlencode({"client": "dict-chrome-ex", "sl": "en", "tl": "fr", "q": text})
+    data = json.loads(http("https://clients5.google.com/translate_a/t?" + q, timeout=10))
+    if isinstance(data, dict):
+        return "".join(x.get("trans", "") for x in data.get("sentences", [])).strip()
+    first = data[0]
+    return (first[0] if isinstance(first, list) else first).strip()
+
+
+def _mymemory(text):
+    q = urllib.parse.urlencode({"q": text, "langpair": "en|fr"})
+    data = json.loads(http("https://api.mymemory.translated.net/get?" + q, timeout=10))
+    out = data["responseData"]["translatedText"].strip()
+    if "MYMEMORY WARNING" in out.upper() or "QUERY LENGTH LIMIT" in out.upper():
+        raise ValueError(out)
+    return out
+
+
+PROVIDERS = (("google", _google_gtx), ("google-bis", _google_chrome), ("mymemory", _mymemory))
+
+
+def translate_text(text):
+    """Traduit en français (3 services gratuits en secours l'un de l'autre). Lève TranslationError si tous échouent."""
+    text = text.strip()
+    if not text:
+        return text
+    if text in _cache:
+        return _cache[text]
+    for wait in (0, 3, 8):
+        time.sleep(wait)
+        for name, fn in PROVIDERS:
+            try:
+                out = fn(text)
+                if out:
+                    _cache[text] = out
+                    time.sleep(0.4)  # petite pause pour ne pas se faire limiter
+                    return out
+            except Exception as e:
+                LAST_ERRORS[name] = f"{type(e).__name__}: {e}"
+    raise TranslationError(text)
+
+
+RENOMMER_DEFAUT = [
+    "ISM Services PMI = Indice PMI non manufacturier de l'ISM",
+    "ISM Non-Manufacturing PMI = Indice PMI non manufacturier de l'ISM",
+    "ISM Manufacturing PMI = Indice PMI manufacturier de l'ISM",
+]
+
+
+def custom_title(seg):
+    """Titres imposés (renommer.txt, format 'texte anglais = titre français') : ils remplacent la traduction automatique."""
+    t = seg.strip().lower()
+    for line in read_terms(RENOMMER_PATH, RENOMMER_DEFAUT, "Titres personnalisés",
+                           "Format : texte anglais = titre français. Le titre français remplace la traduction automatique."):
+        if "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key, val = key.strip(), val.strip()
+        if key and val and key.lower() in t and len(t) <= len(key) + 12:
+            return val
+    return None
+
+
+def to_french(title):
+    if not TRANSLATE:
+        return title
+    out = []
+    for seg in BLOCK_RE.split(title):
+        m = BLOCK_PARTS.fullmatch(seg.strip())
+        if m:  # bloc chiffré : mis en forme sans passer par la traduction
+            a, f, p = (comma(g) for g in m.groups())
+            out.append(f"Publié {a} (prévu {f}, précédent {p})")
+        elif seg.strip():
+            out.append(custom_title(seg) or comma(translate_text(seg)))
+    return " ".join(out)
+
+
+def split_subject(text):
+    """Sépare le sujet du reste : 'Indice PMI ... allemands | Publié 52,9 (...)' ou 'Williams (Fed) | : ...'."""
+    i = text.find(" Publié ")
+    if i > 0:
+        return text[:i], text[i:]
+    m = re.match(r"^(.{3,80}?)(\s*:\s*)(.+)$", text)
+    if m:
+        return m.group(1), m.group(2) + m.group(3)
+    return None, text
+
+
+SPEAKER_RE = re.compile(r"^([^:\d]{2,45}?)(\s*:\s*)(.+)$", re.S)
+NOT_SPEAKER = ("breaking", "urgent", "exclusive", "update", "alert", "flash", "rumor", "report", "reports", "source", "sources")
+
+
+def style(title, base):
+    """Met le texte en forme ('i' ou 'bi') ; si une personne parle ('Powell : ...'), son nom est souligné."""
+    def wrap(t):
+        t = html.escape(t)
+        return f"<b><i>{t}</i></b>" if base == "bi" else f"<i>{t}</i>"
+    m = SPEAKER_RE.match(title)
+    if m and len(m.group(1).split()) <= 5 and m.group(1).strip().lower() not in NOT_SPEAKER:
+        name, sep, rest = m.groups()
+        return wrap(name).replace(html.escape(name), f"<u>{html.escape(name)}</u>") + wrap(sep + rest)
+    return wrap(title)
+
+
+DATA_RE = re.compile(r"^(.*?)\s*Publié (.+?) \(prévu (.+?), précédent (.+?)\)\s*$", re.S)
+
+
+SEP = "\u2500" * 14
+
+
+ETIQUETTES_DEFAUT = [
+    "donnee: US, U.S., USA, United States, American, Fed, FOMC, ADP, ISM, NFP, nonfarm, Michigan, Conference Board, PCE, jobless claims, Jobless Claims, durable goods, Philadelphia, Empire State, Richmond = \U0001F1FA\U0001F1F8",
+    "autre: Fed, FOMC, Federal Reserve, rate decision, rate cut, rate hike = \U0001F3E6",
+    "autre: gold, XAU = \U0001F947",
+]
+
+
+def labels(kind):
+    """Lit etiquettes.txt : lignes 'donnee: mots = emoji' (donnée chiffrée) ou 'autre: mots = emoji'."""
+    out = []
+    for line in read_terms(ETIQUETTES_PATH, ETIQUETTES_DEFAUT, "Petits repères devant les annonces importantes",
+                           "Format : donnee: mot1, mot2 = emoji (donnée chiffrée) ou autre: mot1, mot2 = emoji. La première ligne qui correspond gagne."):
+        k, _, rest = line.partition(":")
+        if k.strip().lower() == kind and "=" in rest:
+            words, emoji = rest.rsplit("=", 1)
+            out.append(([w.strip() for w in words.split(",") if w.strip()], emoji.strip()))
+    return out
+
+
+def tag_for(original, title):
+    """Petit repère de catégorie devant les annonces importantes."""
+    if BLOCK_PARTS.search(original):  # donnée chiffrée : drapeau du pays, sinon graphique
+        for words, emoji in labels("donnee"):
+            if has_term(words, original):
+                return emoji
+        return "\U0001F4CA"
+    m = SPEAKER_RE.match(title)
+    if m and len(m.group(1).split()) <= 5 and m.group(1).strip().lower() not in NOT_SPEAKER:
+        return "\U0001F399"  # micro : discours
+    for words, emoji in labels("autre"):
+        if has_term(words, original):
+            return emoji
+    return ""
+
+
+RETIRER_DEFAUT = [
+    r"\s+(?:aux|des|du|en|de|d')\s*(?:les\s+)?(?:États-Unis|Etats-Unis|USA)\b",
+    r"\s+(?:américain|américaine|américains|américaines)\b",
+    r"^(?:US|U\.S\.)\s+",
+]
+
+
+def drop_us(subject):
+    """Le drapeau indique déjà le pays : on retire les mentions du pays du sujet (expressions dans retirer.txt)."""
+    s = subject
+    for pat in read_terms(RETIRER_PATH, RETIRER_DEFAUT, "Mots retirés des titres de données chiffrées",
+                          "Expressions régulières, une par ligne : le drapeau affiché devant le titre remplace ces mentions."):
+        try:
+            s = re.sub(pat, "", s, flags=re.I)
+        except re.error:
+            pass
+    return s.strip(" :-") or subject
+
+
+def vs_forecast(actual, forecast):
+    a, f = to_float(actual), to_float(forecast)
+    if a is None or f is None:
+        return ""
+    if abs(a - f) < 1e-9:
+        return " ="
+    return " \u25B2" if a > f else " \u25BC"
+
+
+def fmt(item, english=False):
+    original = item["title"]
+    title = original if english else to_french(original)
+    hhmm = item.get("time", "")
+    when = ""  # heure retirée
+    if not is_important(original):
+        m = DATA_RE.match(title)
+        if m:  # donnée chiffrée normale : drapeau + sujet en italique, puis les chiffres sur une ligne
+            subject = drop_us(m.group(1).strip(" :-") or "Annonce")
+            a, f, p = (html.escape(g) for g in m.group(2, 3, 4))
+            flag = tag_for(original, title) or "\u25AB\uFE0F"
+            return (f"{flag} <i>{html.escape(subject)}</i>\n\n"
+                    f"<i>Publié : {a}{vs_forecast(m.group(2), m.group(3))}\n"
+                    f"Prévu : {f} \u00B7 Précédent : {p}</i>")
+        return f"\u25AB\uFE0F {style(title, 'i')}{when}"  # autre annonce normale : une ligne compacte, italique
+    tag = tag_for(original, title)
+    head = f"\U0001F534 {tag} " if tag else "\U0001F534 "
+    m = DATA_RE.match(title)
+    if m:  # donnée chiffrée : sujet souligné, Publié en gras + écart, prévu/précédent en italique
+        subject = drop_us(m.group(1).strip(" :-") or "Annonce")
+        a, f, p = (html.escape(g) for g in m.group(2, 3, 4))
+        return (f"{head}<b><u>{html.escape(subject.upper())}</u></b>{when}\n\n"
+                f"<b><i>Publié : {a}</i></b>{vs_forecast(m.group(2), m.group(3))}\n"
+                f"<i>Prévu : {f} \u00B7 Précédent : {p}</i>\n{SEP}")
+    sp = SPEAKER_RE.match(title)
+    if tag == "\U0001F399" and sp:  # discours : nom souligné au-dessus, déclaration en dessous
+        name, _, rest = sp.groups()
+        return (f"{head}<b><u>{html.escape(name.strip())}</u></b>{when}\n\n"
+                f"<i>{html.escape(rest.strip())}</i>\n{SEP}")
+    return f"{head}{style(title, 'bi')}{when}\n{SEP}"  # autre annonce importante : gras italique
+
+
+def load_seen():
+    if os.path.exists(SEEN_PATH):
+        try:
+            return json.load(open(SEEN_PATH, encoding="utf-8"))
+        except ValueError:
+            pass
+    return None
+
+
+def save_seen(ids):
+    with open(SEEN_PATH, "w", encoding="utf-8") as f:
+        json.dump(ids[-KEEP:], f)
+
+
+def need_env(*names):
+    missing = [n for n in names if not CFG.get(n)]
+    if missing:
+        sys.exit("Il manque dans config.env : " + ", ".join(missing))
+
+
+def cmd_chat_id():
+    need_env("TELEGRAM_BOT_TOKEN")
+    r = tg("getUpdates")
+    if not r.get("ok"):
+        sys.exit(f"Erreur Telegram : {r.get('description')}")
+    seen = {}
+    for u in r.get("result", []):
+        m = u.get("message") or u.get("channel_post") or u.get("my_chat_member") or {}
+        c = m.get("chat")
+        if c:
+            seen[c["id"]] = c.get("title") or c.get("username") or c.get("first_name") or "?"
+    if not seen:
+        sys.exit("Aucun message reçu. Ajoute le bot au groupe, écris /start dans le groupe, puis relance.")
+    for cid, name in seen.items():
+        print(f"{cid}   {name}")
+
+
+def cmd_dry():
+    items = fetch_items()
+    print(f"{len(items)} titres lus. Les 5 plus récents :")
+    for it in items[:5]:
+        print(" -", it["title"])
+
+
+def cmd_test():
+    need_env("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID")
+    ok = send("<b>Test</b> : le bot FinancialJuice est bien relié à ce groupe.")
+    print("Message de test envoyé." if ok else "Échec de l'envoi (voir le message ci-dessus).")
+
+
+def run():
+    if DEADLINE and not (CFG.get("TELEGRAM_BOT_TOKEN") and CFG.get("TELEGRAM_CHAT_ID")):
+        log("Bot pas encore configuré (token ou identifiant de canal manquant) : rien à faire.")
+        return
+    need_env("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID")
+    seen = load_seen()
+    errors = 0
+    delay = INTERVAL
+    fails = {}  # nombre d'échecs de traduction par titre
+    log("Bot lancé. Ctrl+C pour arrêter.")
+    while True:
+        try:
+            items = fetch_items()
+            errors = 0
+            delay = INTERVAL
+            if seen is None:  # premier lancement : on mémorise l'existant sans rien envoyer
+                seen = [i["id"] for i in reversed(items)]
+                save_seen(seen)
+                log(f"Premier lancement : {len(seen)} titres existants ignorés, j'envoie les suivants.")
+            else:
+                known = set(seen)
+                new = [i for i in reversed(items) if i["id"] not in known]
+                for it in new:
+                    if is_ignored(it["title"]) or not is_wanted(it["title"]):  # graphiques, hors sujet : on passe
+                        seen.append(it["id"])
+                        continue
+                    try:
+                        text = fmt(it)
+                    except TranslationError:
+                        fails[it["id"]] = fails.get(it["id"], 0) + 1
+                        if fails[it["id"]] < 4:
+                            log("Traduction impossible pour l'instant, nouvel essai au prochain tour.")
+                            break  # on garde l'ordre : on réessaiera ce titre
+                        text = fmt(it, english=True)  # dernier recours : le titre en anglais
+                    if send(text, silent=SILENCIEUX and not is_important(it["title"])):
+                        seen.append(it["id"])
+                        log("Envoyé : " + it["title"][:80])
+                    else:
+                        break  # on réessaiera au prochain tour, sans perdre l'ordre
+                if new:
+                    save_seen(seen)
+        except KeyboardInterrupt:
+            raise
+        except urllib.error.HTTPError as e:
+            errors += 1
+            if e.code == 429:  # le site demande de ralentir
+                try:
+                    asked = int(e.headers.get("Retry-After", "0"))
+                except ValueError:
+                    asked = 0
+                delay = min(max(delay * 2, asked, 120), MAX_WAIT)
+                log(f"Le site demande de ralentir (429). Prochaine lecture dans {delay} s.")
+            else:
+                delay = INTERVAL
+                log(f"Lecture impossible (HTTP {e.code}). Nouvel essai dans {delay} s.")
+        except Exception as e:  # réseau, flux illisible...
+            errors += 1
+            delay = INTERVAL
+            log(f"Lecture impossible ({type(e).__name__}: {e}). Nouvel essai dans {delay} s.")
+        if errors == 10:
+            send("Le bot n'arrive plus à lire le flux FinancialJuice depuis un moment.")
+        if DEADLINE and time.time() + delay >= DEADLINE:
+            log("Fin du cycle.")
+            return
+        time.sleep(delay)
+
+
+DEMO = [
+    "US ISM Services PMI Actual 55.2 (Forecast 54.0, Previous 55.4)",
+    "Fed's Williams: policy is well positioned to respond to a weaker labor market",
+    "Gold hits record high above $4,000",
+    "German Services PMI Final Actual 52.9 (Forecast 52.9, Previous 52.9)",
+    "Trump: tariffs on Chinese goods will rise next month",
+    "US Initial Jobless Claims Actual 200K (Forecast 220K, Previous 197K)",
+    "Treasury yields rise as 10-year hits 4.5%",
+    "Goldman Sachs raises S&P 500 year-end target",
+    "Powell: inflation is still too high, we will remain data dependent",
+    "US Dollar Index (DXY) climbs to a two-week high",
+    "Taiwan stocks gain over 2%",
+    "US Nonfarm Payrolls Actual 254K (Forecast 150K, Previous 159K)",
+    "Fed's Waller: a rate cut in December is possible",
+    "Wall Street opens higher as tech rebounds",
+    "Iran says it will respond to any attack on its oil facilities",
+    "US ADP Employment Change Actual 143K (Forecast 120K, Previous 122K)",
+    "Gold futures extend gains as the dollar weakens",
+    "Italian Services PMI Actual 51.7 (Forecast 54.5, Previous 55.2)",
+    "Treasury Secretary says the US will not default",
+    "US Core PCE Price Index m/m Actual 0.3% (Forecast 0.2%, Previous 0.2%)",
+    "Nasdaq closes at a fresh record high",
+    "Fed's Kashkari: the labor market is cooling but inflation is sticky",
+]
+
+
+def cmd_demo():
+    need_env("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID")
+    n = 0
+    demo = DEMO
+    if os.path.exists(DEMO_PATH):
+        with open(DEMO_PATH, encoding="utf-8") as f:
+            demo = [l.strip() for l in f if l.strip() and not l.startswith("#")] or DEMO
+    for t in demo:
+        if is_ignored(t) or not is_wanted(t):
+            print("Écarté :", t)
+            continue
+        try:
+            now = time.strftime("%H:%M")
+            send(fmt({"title": t, "time": now}))
+        except TranslationError:
+            send(fmt({"title": t, "time": now}, english=True))
+        n += 1
+        time.sleep(1.5)
+    print(f"{n} titres envoyés, {len(demo) - n} écartés (hors marché suivi).")
+
+
+if __name__ == "__main__":
+    arg = sys.argv[1] if len(sys.argv) > 1 else ""
+    try:
+        {"--chat-id": cmd_chat_id, "--dry": cmd_dry, "--test": cmd_test, "--demo": cmd_demo}.get(arg, run)()
+    except KeyboardInterrupt:
+        print("\nArrêté.")

@@ -1,0 +1,7 @@
+# Mots retirés des titres de données chiffrées
+# Expressions régulières, une par ligne : le drapeau affiché devant le titre remplace ces mentions.
+# Une entrée par ligne, en anglais (comme dans les titres d'origine).
+# Les lignes qui commencent par # sont ignorées. Modifie sans arrêter le bot.
+\s+(?:aux|des|du|en|de|d')\s*(?:les\s+)?(?:États-Unis|Etats-Unis|USA)\b
+\s+(?:américain|américaine|américains|américaines)\b
+^(?:US|U\.S\.)\s+

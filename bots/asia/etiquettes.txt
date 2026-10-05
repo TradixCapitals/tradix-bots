@@ -1,0 +1,15 @@
+# Petits repères devant les annonces importantes
+# Format : donnee: mot1, mot2 = emoji (donnée chiffrée) ou autre: mot1, mot2 = emoji. La première ligne qui correspond gagne.
+# Une entrée par ligne, en anglais (comme dans les titres d'origine). Les lignes qui commencent par # sont ignorées.
+donnee: Japan, Japanese, BoJ, Ueda, Nikkei, TOPIX, Tankan, JPY, Yen = 🇯🇵
+donnee: Hong Kong, Hang Seng = 🇭🇰
+donnee: China, Chinese, PBoC, Yuan, CNY, CNH, Caixin, Shanghai, Shenzhen = 🇨🇳
+donnee: Australia, Australian, RBA, ASX, AUD = 🇦🇺
+donnee: New Zealand, RBNZ, NZD = 🇳🇿
+donnee: India, Indian, RBI, Nifty, Sensex = 🇮🇳
+donnee: Korea, Korean, BoK, Kospi = 🇰🇷
+donnee: Taiwan, TSMC = 🇹🇼
+donnee: Singapore, MAS = 🇸🇬
+autre: BoJ, Ueda, PBoC, RBA, RBNZ, RBI, BoK, rate decision, rate cut, rate hike = 🏦
+autre: gold, XAU = 🥇
+autre: oil, Brent, OPEC = 🛢

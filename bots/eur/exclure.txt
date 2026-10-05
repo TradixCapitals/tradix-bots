@@ -1,0 +1,43 @@
+# Repères des autres marchés
+# Un titre qui contient l'un de ces mots est écarté, sauf s'il contient aussi un repère du marché suivi.
+# Une entrée par ligne, en anglais (comme dans les titres d'origine). Les lignes qui commencent par # sont ignorées.
+US
+U.S.
+United States
+American
+Fed
+FOMC
+Federal Reserve
+Powell
+Treasury
+Wall Street
+Nasdaq
+Dow
+S&P 500
+NFP
+nonfarm
+ADP
+ISM
+Japan
+Japanese
+BoJ
+China
+Chinese
+PBoC
+Australia
+Australian
+RBA
+New Zealand
+RBNZ
+Canada
+Canadian
+BoC
+India
+Indian
+Brazil
+Mexico
+Turkey
+Korea
+Taiwan
+Hong Kong
+Singapore

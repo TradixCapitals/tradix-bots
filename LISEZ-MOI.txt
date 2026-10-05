@@ -1,0 +1,4 @@
+Bots Telegram FinancialJuice : TradixUS, TradixEUR, TradixASIA.
+Un dossier par bot dans bots/ : us, eur, asia. Les listes de mots (important.txt, garder.txt, ignorer.txt,
+renommer.txt, etc.) se modifient dans ces dossiers, puis on publie la modification.
+Les tokens et identifiants de canaux sont dans les secrets du dépôt (Settings > Secrets), jamais dans les fichiers.

@@ -1,0 +1,14 @@
+# Titres personnalisés
+# Format : texte anglais = titre français. Le titre français remplace la traduction automatique.
+# Une entrée par ligne, en anglais (comme dans les titres d'origine).
+# Les lignes qui commencent par # sont ignorées. Modifie sans arrêter le bot.
+ISM Services PMI = Indice PMI non manufacturier de l'ISM
+ISM Non-Manufacturing PMI = Indice PMI non manufacturier de l'ISM
+ISM Manufacturing PMI = Indice PMI manufacturier de l'ISM
+ISM Services Prices Paid = ISM non manufacturier - Prix payés
+ISM Services Employment = ISM non manufacturier - Emploi
+ISM Services New Orders = ISM non manufacturier - Nouvelles commandes
+ISM Services Business Activity = ISM non manufacturier - Activité des affaires
+S&P Global Services PMI = PMI services
+S&P Global Composite PMI = Indice PMI composite de S&P Global
+S&P Global Manufacturing PMI = PMI manufacturier

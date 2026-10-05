@@ -1,0 +1,7 @@
+# Titres personnalisés
+# Format : texte anglais = titre français. Le titre français remplace la traduction automatique.
+# Une entrée par ligne, en anglais (comme dans les titres d'origine).
+# Les lignes qui commencent par # sont ignorées. Modifie sans arrêter le bot.
+ISM Services PMI = Indice PMI non manufacturier de l'ISM
+ISM Non-Manufacturing PMI = Indice PMI non manufacturier de l'ISM
+ISM Manufacturing PMI = Indice PMI manufacturier de l'ISM

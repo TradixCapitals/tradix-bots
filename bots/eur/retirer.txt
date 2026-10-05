@@ -1,0 +1,7 @@
+# Mots retirés des titres de données chiffrées
+# Expressions régulières, une par ligne : le drapeau affiché devant le titre remplace ces mentions.
+# Une entrée par ligne, en anglais (comme dans les titres d'origine). Les lignes qui commencent par # sont ignorées.
+\s+(?:de la|de l'|de|en|dans la|dans l')\s*zone\s+euro\b
+\s+(?:allemand|allemande|allemands|allemandes|français|française|françaises|italien|italienne|italiens|italiennes|espagnol|espagnole|espagnols|espagnoles|britannique|britanniques|suisse|suisses)\b
+\s+(?:de l'|d'|en|de la|du|au)\s*(?:Allemagne|France|Italie|Espagne|Royaume-Uni|Suisse)\b
+^(?:Eurozone|Euro Zone|Euro Area|German|French|Italian|Spanish|UK|Swiss)\s+

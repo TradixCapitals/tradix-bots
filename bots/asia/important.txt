@@ -1,0 +1,22 @@
+# Mots qui rendent une annonce importante
+# Annonce importante = rond rouge, sujet souligné, notification sonore.
+# Une entrée par ligne, en anglais (comme dans les titres d'origine). Les lignes qui commencent par # sont ignorées.
+BoJ
+Ueda
+PBoC
+RBA
+RBNZ
+RBI
+BoK
+rate decision
+rate cut
+rate hike
+intervention
+Tankan
+Caixin
+CPI
+GDP
+stimulus
+emergency
+Services PMI
+Manufacturing PMI

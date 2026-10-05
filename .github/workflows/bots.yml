@@ -1,0 +1,48 @@
+name: bots-marches
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  run:
+    name: bot ${{ matrix.bot }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { bot: us,   secret: US,   delay: 0,  cycle: 285 }
+          - { bot: eur,  secret: EUR,  delay: 30, cycle: 255 }
+          - { bot: asia, secret: ASIA, delay: 60, cycle: 225 }
+    concurrency:
+      group: fj-${{ matrix.bot }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restaurer la mémoire des titres déjà envoyés
+        uses: actions/cache/restore@v4
+        with:
+          path: bots/${{ matrix.bot }}/seen.json
+          key: seen-${{ matrix.bot }}-none
+          restore-keys: seen-${{ matrix.bot }}-
+
+      - name: Lancer le bot (cycle de ~5 minutes)
+        env:
+          BOT_DIR: bots/${{ matrix.bot }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets[format('TELEGRAM_BOT_TOKEN_{0}', matrix.secret)] }}
+          TELEGRAM_CHAT_ID: ${{ secrets[format('TELEGRAM_CHAT_ID_{0}', matrix.secret)] }}
+          CYCLE_SECONDS: ${{ matrix.cycle }}
+        run: |
+          sleep ${{ matrix.delay }}
+          python3 bot_financialjuice.py
+
+      - name: Sauvegarder la mémoire des titres
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: bots/${{ matrix.bot }}/seen.json
+          key: seen-${{ matrix.bot }}-${{ github.run_id }}-${{ github.run_attempt }}

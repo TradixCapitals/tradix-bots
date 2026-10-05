@@ -1,0 +1,24 @@
+# Titres d'exemple pour la démonstration
+# python3 bot_financialjuice.py --demo
+# Une entrée par ligne, en anglais (comme dans les titres d'origine). Les lignes qui commencent par # sont ignorées.
+Japan Services PMI Final Actual 53.1 (Forecast 52.9, Previous 52.9)
+China Caixin Services PMI Actual 52.1 (Forecast 51.6, Previous 51.9)
+BoJ's Ueda: will raise rates if outlook is realized
+Nikkei 225 closes at a record high
+Australia Retail Sales MoM Actual 0.5% (Forecast 0.3%, Previous 0.2%)
+RBA keeps cash rate unchanged at 3.60%
+PBoC sets USD/CNY reference rate at 7.1062
+China Official Manufacturing PMI Actual 49.8 (Forecast 49.6, Previous 49.4)
+Hang Seng gains 1.4% as tech rebounds
+India Services PMI Final Actual 60.9 (Forecast 60.5, Previous 62.9)
+Japan's Finance Minister warns of excessive yen moves
+USD/JPY falls to 147.20
+New Zealand Unemployment Rate Actual 5.3% (Forecast 5.2%, Previous 5.2%)
+South Korea CPI YoY Actual 2.1% (Forecast 2.0%, Previous 1.7%)
+Taiwan stocks gain over 2%
+China stimulus: State Council announces new measures to support consumption
+Japan Household Spending YoY Actual 2.3% (Forecast 1.5%, Previous 1.4%)
+Eurozone PPI YoY Actual 8.2% (Forecast 7.9%, Previous 5.8%)
+US ISM Services PMI Actual 55.2 (Forecast 54.0, Previous 55.4)
+Fed's Waller: a rate cut in December is possible
+Gold futures extend gains as the dollar weakens

@@ -1,0 +1,13 @@
+# Sujets supplémentaires à suivre (Asie)
+# Titres envoyés en plus des repères du marché (matières premières, tarifs...). Fichier vide = tout est envoyé.
+# Une entrée par ligne, en anglais (comme dans les titres d'origine). Les lignes qui commencent par # sont ignorées.
+gold
+XAU
+oil
+Brent
+OPEC
+tariff
+tariffs
+semiconductor
+chip
+rare earth

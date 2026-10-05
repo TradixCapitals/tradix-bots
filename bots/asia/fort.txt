@@ -1,0 +1,52 @@
+# Repères du marché suivi (Asie-Pacifique)
+# Une donnée chiffrée n'est envoyée que si elle contient l'un de ces repères (pays, banque centrale, indice...).
+# Une entrée par ligne, en anglais (comme dans les titres d'origine). Les lignes qui commencent par # sont ignorées.
+Japan
+Japanese
+BoJ
+Ueda
+Nikkei
+TOPIX
+Tankan
+JPY
+Yen
+China
+Chinese
+PBoC
+Yuan
+CNY
+CNH
+Caixin
+Shanghai
+Shenzhen
+Hang Seng
+Hong Kong
+Australia
+Australian
+RBA
+ASX
+AUD
+New Zealand
+RBNZ
+NZD
+India
+Indian
+RBI
+Nifty
+Sensex
+Korea
+Korean
+BoK
+Kospi
+Taiwan
+TSMC
+Singapore
+MAS
+Indonesia
+Thailand
+Philippines
+Malaysia
+Vietnam
+Asia
+Asian
+APAC

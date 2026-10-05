@@ -1,0 +1,35 @@
+# Repères des autres marchés
+# Un titre qui contient l'un de ces mots est écarté, sauf s'il contient aussi un repère du marché suivi.
+# Une entrée par ligne, en anglais (comme dans les titres d'origine). Les lignes qui commencent par # sont ignorées.
+US
+U.S.
+United States
+American
+Fed
+FOMC
+Federal Reserve
+Powell
+Treasury
+Eurozone
+Euro Zone
+ECB
+German
+Germany
+France
+French
+Italy
+Italian
+Spain
+Spanish
+UK
+British
+BoE
+Switzerland
+Swiss
+SNB
+Canada
+Canadian
+BoC
+Brazil
+Mexico
+Turkey

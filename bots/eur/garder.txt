@@ -1,0 +1,13 @@
+# Sujets supplémentaires à suivre (Europe)
+# Titres envoyés en plus des repères du marché (énergie, géopolitique...). Fichier vide = tout est envoyé.
+# Une entrée par ligne, en anglais (comme dans les titres d'origine). Les lignes qui commencent par # sont ignorées.
+natural gas
+TTF
+Brent
+OPEC
+Russia
+Ukraine
+tariff
+tariffs
+gold
+XAU

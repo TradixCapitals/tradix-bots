@@ -1,0 +1,25 @@
+# Titres d'exemple pour la démonstration
+# python3 bot_financialjuice.py --demo
+# Une entrée par ligne, en anglais (comme dans les titres d'origine). Les lignes qui commencent par # sont ignorées.
+Eurozone Services PMI Final Actual 51.4 (Forecast 51.4, Previous 51.3)
+German Services PMI Final Actual 52.9 (Forecast 52.9, Previous 52.9)
+Eurozone PPI YoY Actual 8.2% (Forecast 7.9%, Previous 5.8%)
+ECB's Lagarde: inflation is returning to target, but risks remain
+Italian Services PMI Actual 51.7 (Forecast 54.5, Previous 55.2)
+French Services PMI Final Actual 49.8 (Forecast 49.5, Previous 49.6)
+UK Services PMI Final Actual 52.0 (Forecast 51.5, Previous 51.9)
+ECB's Schnabel: no need to hurry on further rate cuts
+Bund yields fall as euro zone growth outlook weakens
+BoE's Bailey: inflation risks are tilted to the upside
+Swiss CPI YoY Actual 0.3% (Forecast 0.2%, Previous 0.2%)
+EUR/USD climbs to a one-week high
+German ZEW Economic Sentiment Actual 41.8 (Forecast 39.0, Previous 37.3)
+Eurozone Retail Sales MoM Actual 0.2% (Forecast 0.1%, Previous -0.1%)
+DAX closes at a record high
+Spain's PM Sanchez: election set for November 29
+TTF gas prices jump as storage levels fall
+US ISM Services PMI Actual 55.2 (Forecast 54.0, Previous 55.4)
+Fed's Waller: a rate cut in December is possible
+Japan Services PMI Actual 52.0 (Forecast 51.0, Previous 50.0)
+Eurozone CPI Flash YoY Actual 2.2% (Forecast 2.1%, Previous 2.0%)
+Taiwan stocks gain over 2%

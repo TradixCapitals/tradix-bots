@@ -1,0 +1,9 @@
+# Titres à ne pas envoyer
+# Si le titre contient l'une de ces expressions, il est ignoré.
+# Une entrée par ligne, en anglais (comme dans les titres d'origine).
+# Les lignes qui commencent par # sont ignorées. Modifie sans arrêter le bot.
+Interest Rate Probabilities
+Implied Volatility
+Currency Strength
+Strength Chart
+FJElite

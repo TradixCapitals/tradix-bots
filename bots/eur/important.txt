@@ -1,0 +1,23 @@
+# Mots qui rendent une annonce importante
+# Annonce importante = rond rouge, sujet souligné, notification sonore.
+# Une entrée par ligne, en anglais (comme dans les titres d'origine). Les lignes qui commencent par # sont ignorées.
+ECB
+Lagarde
+BoE
+Bailey
+SNB
+Schlegel
+Bundesbank
+rate decision
+rate cut
+rate hike
+HICP
+CPI
+GDP
+PMI
+ZEW
+Ifo
+unemployment
+inflation
+election
+emergency

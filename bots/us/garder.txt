@@ -1,0 +1,52 @@
+# Sujets à suivre (concentration États-Unis et or)
+# Seuls les titres qui contiennent l'une de ces expressions sont envoyés. Fichier vide = tout est envoyé.
+# Une entrée par ligne, en anglais (comme dans les titres d'origine).
+# Les lignes qui commencent par # sont ignorées. Modifie sans arrêter le bot.
+US
+U.S.
+USD
+DXY
+United States
+American
+America
+Fed
+FOMC
+Federal Reserve
+Powell
+Treasury
+Treasuries
+yield
+yields
+dollar
+Wall Street
+S&P 500
+Nasdaq
+Dow
+Trump
+White House
+tariff
+tariffs
+NFP
+nonfarm
+payrolls
+ADP
+jobless
+unemployment
+CPI
+PCE
+PPI
+ISM
+Michigan
+Conference Board
+durable goods
+gold
+XAU
+bullion
+Iran
+Israel
+Middle East
+Houthi
+Russia
+Ukraine
+China
+OPEC

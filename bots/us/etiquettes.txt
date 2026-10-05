@@ -1,0 +1,7 @@
+# Petits repères devant les annonces importantes
+# Format : donnee: mot1, mot2 = emoji (donnée chiffrée) ou autre: mot1, mot2 = emoji. La première ligne qui correspond gagne.
+# Une entrée par ligne, en anglais (comme dans les titres d'origine).
+# Les lignes qui commencent par # sont ignorées. Modifie sans arrêter le bot.
+donnee: US, U.S., USA, United States, American, Fed, FOMC, ADP, ISM, NFP, nonfarm, Michigan, Conference Board, PCE, jobless claims, Jobless Claims, durable goods, Philadelphia, Empire State, Richmond = 🇺🇸
+autre: Fed, FOMC, Federal Reserve, rate decision, rate cut, rate hike = 🏦
+autre: gold, XAU = 🥇

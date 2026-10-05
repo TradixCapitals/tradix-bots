@@ -1,0 +1,6 @@
+# Mots retirés des titres de données chiffrées
+# Expressions régulières, une par ligne : le drapeau affiché devant le titre remplace ces mentions.
+# Une entrée par ligne, en anglais (comme dans les titres d'origine). Les lignes qui commencent par # sont ignorées.
+\s+(?:du|au|de|en|de la|de l')\s*(?:Japon|Chine|Australie|Nouvelle-Zélande|Inde|Corée du Sud|Corée|Taïwan|Singapour|Hong Kong)\b
+\s+(?:japonais|japonaise|japonaises|chinois|chinoise|chinoises|australien|australienne|australiens|australiennes|indien|indienne|indiens|indiennes|coréen|coréenne|coréens|coréennes|néo-zélandais|néo-zélandaise)\b
+^(?:Japan|Japanese|China|Chinese|Australian|Australia|New Zealand|NZ|India|Indian|Korean|South Korea|Taiwan|Singapore)\s+

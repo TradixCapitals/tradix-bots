@@ -1,0 +1,13 @@
+# Petits repères devant les annonces importantes
+# Format : donnee: mot1, mot2 = emoji (donnée chiffrée) ou autre: mot1, mot2 = emoji. La première ligne qui correspond gagne.
+# Une entrée par ligne, en anglais (comme dans les titres d'origine). Les lignes qui commencent par # sont ignorées.
+donnee: German, Germany, DAX, ZEW, Ifo, Bundesbank = 🇩🇪
+donnee: French, France, CAC = 🇫🇷
+donnee: Italian, Italy = 🇮🇹
+donnee: Spanish, Spain = 🇪🇸
+donnee: UK, British, Britain, BoE, FTSE, Gilt, Gilts = 🇬🇧
+donnee: Swiss, Switzerland, SNB = 🇨🇭
+donnee: Eurozone, Euro Zone, Euro Area, EU, ECB, Eurostat, HCOB, euro = 🇪🇺
+autre: ECB, Lagarde, BoE, Bailey, SNB, Bundesbank, rate decision, rate cut, rate hike = 🏦
+autre: gold, XAU = 🥇
+autre: natural gas, TTF, Brent, OPEC = ⛽

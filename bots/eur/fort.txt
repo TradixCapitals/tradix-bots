@@ -1,0 +1,56 @@
+# Repères du marché suivi (Europe)
+# Une donnée chiffrée n'est envoyée que si elle contient l'un de ces repères (pays, banque centrale, indice...).
+# Une entrée par ligne, en anglais (comme dans les titres d'origine). Les lignes qui commencent par # sont ignorées.
+Eurozone
+Euro Zone
+Euro Area
+EU
+ECB
+Lagarde
+de Guindos
+Lane
+Schnabel
+Nagel
+Bundesbank
+Eurostat
+ZEW
+Ifo
+HCOB
+German
+Germany
+DAX
+Bund
+France
+French
+CAC
+Italy
+Italian
+Spain
+Spanish
+Netherlands
+Dutch
+Belgium
+Austria
+Portugal
+Greece
+Ireland
+Finland
+UK
+British
+Britain
+BoE
+Bailey
+FTSE
+Gilt
+Gilts
+Swiss
+Switzerland
+SNB
+Schlegel
+EUR
+EURUSD
+EUR/USD
+GBP
+CHF
+euro
+Stoxx
