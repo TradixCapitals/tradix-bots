@@ -5,6 +5,10 @@ on:
     - cron: "*/5 * * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   run:
     name: bot ${{ matrix.bot }}
@@ -46,3 +50,15 @@ jobs:
         with:
           path: bots/${{ matrix.bot }}/seen.json
           key: seen-${{ matrix.bot }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+  relais:
+    name: relancer le cycle suivant
+    needs: run
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Relancer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run bots.yml --ref main -R ${{ github.repository }}
