@@ -2,8 +2,12 @@ name: bots-marches
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "*/30 * * * *"   # filet de sécurité : relance la chaîne si elle s'est arrêtée
   workflow_dispatch:
+
+concurrency:                 # un seul lancement à la fois pour tout le workflow
+  group: tradix-bots
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -21,9 +25,6 @@ jobs:
           - { bot: us,   secret: US,   delay: 0,  cycle: 285 }
           - { bot: eur,  secret: EUR,  delay: 30, cycle: 255 }
           - { bot: asia, secret: ASIA, delay: 60, cycle: 225 }
-    concurrency:
-      group: fj-${{ matrix.bot }}
-      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
 
@@ -61,4 +62,7 @@ jobs:
       - name: Relancer
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run bots.yml --ref main -R ${{ github.repository }}
+        run: |
+          # ne relance que si aucun autre lancement n'attend déjà son tour
+          n=$(gh run list -R ${{ github.repository }} --workflow bots.yml --json status --jq '[.[] | select(.status=="queued" or .status=="pending" or .status=="waiting")] | length')
+          if [ "$n" = "0" ]; then gh workflow run bots.yml --ref main -R ${{ github.repository }}; else echo "Un lancement attend déjà : pas de relance."; fi
