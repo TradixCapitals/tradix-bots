@@ -104,7 +104,8 @@ def fetch_items():
             except Exception:
                 hhmm = ""
             desc = html.unescape(it.findtext("description") or "")  # détails (ex. MOO Imbalance : chiffres par indice)
-            details = [re.sub(r"<[^>]+>", "", l).strip() for l in re.split(r"<br\s*/?>|\n", desc)]
+            parts = re.split(r"<br\s*/?>|</?li[^>]*>|</?p[^>]*>|</?ul[^>]*>|</?ol[^>]*>|</?div[^>]*>|\n", desc, flags=re.I)
+            details = [html.unescape(re.sub(r"<[^>]+>", "", l)).strip(" \u2022\u25AA-") for l in parts]
             items.append({"id": guid, "title": re.sub(r"^FinancialJuice:\s*", "", title), "link": link, "time": hhmm,
                           "details": [d for d in details if d]})
     return items  # du plus récent au plus ancien
@@ -543,16 +544,22 @@ def full_text(item):
 
 
 def fmt_details(item, english=False):
-    """Annonce avec plusieurs lignes de détails (ex. Déséquilibre MOO : S&P 500 -66 M$...)."""
+    """Annonce avec plusieurs lignes de détails (ex. Déséquilibre MOO, rapport EIA...)."""
     original = item["title"]
     head = original if english or not TRANSLATE else (custom_title(original) or comma(translate_text(original)))
-    lines = []
+    lines, texte = [], False
     for d in item["details"]:
-        d = re.sub(r"\s*:\s*", " : ", d, count=1)
-        d = re.sub(r"(\d)\s*mln\b", r"\1 M$", d, flags=re.I)
-        d = re.sub(r"(\d)\s*bln\b", r"\1 Md$", d, flags=re.I)
-        lines.append(f"<i>{html.escape(comma(d))}</i>")
-    body = "\n".join(lines)
+        chiffre = re.fullmatch(r"\s*([^:]{1,40}?)\s*:\s*([-+]?\s*\$?[\d.,]+)\s*(mln|bln|k|m|b)?\s*", d, re.I)
+        if chiffre:  # ligne 'Indice : valeur' (ex. S&P 500 : -66 mln) -> montant en dollars
+            unit = {"mln": " M$", "m": " M$", "bln": " Md$", "b": " Md$", "k": " k$"}.get((chiffre.group(3) or "").lower(), "")
+            d = f"{chiffre.group(1)} : {chiffre.group(2).replace(' ', '')}{unit}"
+        else:  # vraie phrase : traduite
+            texte = True
+            if TRANSLATE and not english:
+                d = translate_text(d)
+        lines.append(comma(d))
+    puce = "\u2022 " if texte and len(lines) > 1 else ""
+    body = "\n".join(f"<i>{puce}{html.escape(l)}</i>" for l in lines)
     if is_important(full_text(item)):
         return f"\U0001F534 <b><u>{html.escape(head.upper())}</u></b>\n\n{body}\n{SEP}"
     return f"\u25AB\uFE0F <i><u>{html.escape(head)}</u></i>\n{body}"
