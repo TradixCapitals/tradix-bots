@@ -501,6 +501,39 @@ def vs_forecast(actual, forecast):
     return " \u25B2" if a > f else " \u25BC"
 
 
+MONNAIE_PATH = os.path.join(BOT_DIR, "monnaie.txt")
+SUFFIXES = {"K": " k", "M": " M", "B": " Md", "T": " Bn"}
+
+
+def money_symbol(original):
+    """monnaie.txt : 'mot-clé = symbole' (ex. Trade Balance = $). Renvoie le symbole si le titre correspond."""
+    for line in read_terms(MONNAIE_PATH, [], "Montants en devise",
+                           "Format : mot-clé = symbole. Ex. Trade Balance = $ -> -105,6 Md$ au lieu de -105,6B."):
+        key, _, sym = line.partition("=")
+        if key.strip() and sym.strip() and key.strip().lower() in original.lower():
+            return sym.strip()
+    return ""
+
+
+def money(x, sym):
+    """'-105,6B' -> '-105,6 Md$' ; laisse la valeur telle quelle si ce n'est pas un montant."""
+    m = re.fullmatch(r"\s*([+-]?)\s*[$\u20AC\u00A3\u00A5]?\s*([\d.,]+)\s*([KMBT]?)\s*", x)
+    if not m:
+        return x.strip()
+    return f"{m.group(1)}{m.group(2)}{SUFFIXES.get(m.group(3), ' ')}{sym}".replace("  ", " ")
+
+
+def figures(original, m):
+    """Chiffres publié / prévu / précédent, avec devise éventuelle et révision mise en forme."""
+    a, f, p = (g.strip() for g in m.group(2, 3, 4))
+    rev = re.match(r"^(.*?),\s*Revised\s+(.+)$", p, re.I)
+    sym = money_symbol(original)
+    conv = (lambda x: money(x, sym)) if sym else (lambda x: x)
+    a, f = conv(a), conv(f)
+    p = f"{conv(rev.group(1))} (révisé {conv(rev.group(2))})" if rev else conv(p)
+    return html.escape(a), html.escape(f), html.escape(p)
+
+
 def fmt(item, english=False):
     original = item["title"]
     title = original if english else to_french(original)
@@ -510,7 +543,7 @@ def fmt(item, english=False):
         m = DATA_RE.match(title)
         if m:  # donnée chiffrée normale : drapeau + sujet en italique, puis les chiffres sur une ligne
             subject = drop_us(m.group(1).strip(" :-") or "Annonce")
-            a, f, p = (html.escape(g) for g in m.group(2, 3, 4))
+            a, f, p = figures(original, m)
             flag = tag_for(original, title) or "\u25AB\uFE0F"
             return (f"{flag} <i>{html.escape(subject)}</i>\n\n"
                     f"<b><i>Publié : {a}</i></b>{vs_forecast(m.group(2), m.group(3))}\n"
@@ -521,7 +554,7 @@ def fmt(item, english=False):
     m = DATA_RE.match(title)
     if m:  # donnée chiffrée : sujet souligné, Publié en gras + écart, prévu/précédent en italique
         subject = drop_us(m.group(1).strip(" :-") or "Annonce")
-        a, f, p = (html.escape(g) for g in m.group(2, 3, 4))
+        a, f, p = figures(original, m)
         return (f"{head}<b><u>{html.escape(subject.upper())}</u></b>{when}\n\n"
                 f"<b><i>Publié : {a}</i></b>{vs_forecast(m.group(2), m.group(3))}\n"
                 f"<i>Prévu : {f} \u00B7 Précédent : {p}</i>\n{SEP}")

@@ -1,0 +1,7 @@
+# Montants en devise
+# Format : mot-clé = symbole. Ex. Trade Balance = $ -> -105,6 Md$ au lieu de -105,6B.
+# Les lignes qui commencent par # sont ignorées. Modifie sans arrêter le bot.
+Trade Balance = $
+Budget = $
+Current Account = $
+TIC = $

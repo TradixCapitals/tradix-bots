@@ -24,3 +24,4 @@ ISM Services PMI
 ISM Non-Manufacturing PMI
 ISM Manufacturing PMI
 S&P Global Services PMI
+Trade Balance
