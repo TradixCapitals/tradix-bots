@@ -329,6 +329,8 @@ GROQ_PROMPT = (
     "'auction' (Treasuries, Bund, OAT...) = 'adjudication' ; 'stops at' / 'clears at' = 'rendement de' ; "
     "'US' / 'U.S.' = 'États-Unis' ou 'américain' (jamais 'US' en français) ; 'US-Iran talks' = 'pourparlers entre les États-Unis et l'Iran' ; "
     "utilise des traits d'union normaux. "
+    "Fonctions : 'US VP Vance' = 'Le vice-président américain Vance' ; 'US Treasury Secretary X' = 'Le secrétaire américain au Trésor X' ; "
+    "'Saudi FM' = 'Le ministre saoudien des Affaires étrangères' ; 'Unclear how' = 'On ne sait pas clairement comment'. "
     "Traduis TOUTE la phrase : ne supprime jamais une information ni une partie du titre. "
     "Pour un conflit entre deux pays, écris 'la guerre entre X et Y' (jamais d'adjectif du type 'russo-ukrainienne'). "
     "Traduis le SENS, jamais mot à mot : utilise les tournures qu'emploierait un journaliste financier français "
@@ -407,6 +409,9 @@ def translate_text(text):
     text = text.strip()
     if not text:
         return text
+    gen = re.search(r"\s+[-\u2013\u2014]\s*(?:interview(?:ed)?\s+|anonymous\s+|unnamed\s+)?(sources?)(?:\s+(?:say|says|said|familiar.*))?\s*\.?\s*$", text, re.I)
+    if gen and gen.start() > 8:  # '... - interview source' / '- sources' -> '– selon une source' / '– selon des sources'
+        return f"{translate_text(text[:gen.start()])} \u2013 selon {'des sources' if gen.group(1).lower() == 'sources' else 'une source'}"
     src = SOURCE_RE.search(text)
     if src and src.start() > 8:  # '... - NewsNation reporter on X' : source retirée avant traduction, remise à la fin
         return f"{translate_text(text[:src.start()])} \u2013 {src.group(1).strip()}"
@@ -420,6 +425,8 @@ def translate_text(text):
                 if out:
                     if name != "groq":  # corrections.txt : seulement pour la traduction Google (l'IA n'en a pas besoin)
                         out = fix_fr(out)
+                        if GROQ_KEY:
+                            log(f"Traduction de secours ({name}) - Groq indisponible : {LAST_ERRORS.get('groq', '?')}")
                     _cache[text] = out
                     time.sleep(0.4)  # petite pause pour ne pas se faire limiter
                     return out
@@ -497,6 +504,7 @@ def speech_fr(label, stmt_en, done):
     m = re.match(r"^\s*([^:]{1,80}?)\s*:\s*(.+)$", fr, re.S)
     if m:
         who = label if done else m.group(1).strip()
+        who = who[:1].upper() + who[1:]
         stmt = m.group(2).strip()
         return who, comma(stmt[:1].upper() + stmt[1:])
     return speaker_fr(label, done), comma(translate_text(stmt_en))  # découpage impossible : ancienne méthode
