@@ -368,6 +368,26 @@ def speaker_head(title):
     return f"{m.group('name').strip()} {INSTITUTIONS[m.group('inst')]}", m.group("rest").strip()
 
 
+def speech_split(title):
+    """Repère un discours 'Intervenant: déclaration'. Renvoie (intervenant, déclaration, nom_déjà_en_français) ou None."""
+    sp = speaker_head(title)
+    if sp:
+        return sp[0], sp[1], True
+    if BLOCK_PARTS.search(title):
+        return None
+    m = SPEAKER_RE.match(title.strip())
+    if m and len(m.group(1).split()) <= 5 and m.group(1).strip().lower() not in NOT_SPEAKER:
+        return m.group(1).strip(), m.group(3).strip(), False
+    return None
+
+
+def speaker_fr(label, done):
+    """'Vitol CEO' -> 'PDG de Vitol'. Un nom seul (Trump, Lagarde...) n'est jamais traduit."""
+    if done or not TRANSLATE or len(label.split()) == 1:
+        return label
+    return translate_text(label)
+
+
 def to_french(title):
     if not TRANSLATE:
         return title
@@ -522,6 +542,8 @@ def fmt_speech(group):
     body = "\n\n".join(lines)
     if any(g[3] for g in group):  # au moins une déclaration importante : rond rouge + sonnerie
         return f"\U0001F534 \U0001F399 <b><u>{name}</u></b>\n\n{body}\n{SEP}"
+    if len(group) == 1:  # une seule déclaration normale : une ligne compacte
+        return f"\u25AB\uFE0F <i><u>{name}</u> : {html.escape(group[0][2])}</i>"
     return f"\u25AB\uFE0F \U0001F399 <u>{name}</u>\n\n{body}"
 
 
@@ -620,19 +642,21 @@ def run():
                     if is_ignored(it["title"]) or not is_wanted(it["title"]):  # graphiques, hors sujet : on passe
                         seen.append(it["id"])
                         continue
-                    sp = speaker_head(it["title"])
+                    sp = speech_split(it["title"])
                     if sp:  # discours : on accumule les déclarations consécutives de la même personne
-                        if pending and pending[0][1] != sp[0] and not flush():
+                        label, stmt_en, done = sp
+                        if pending and pending[0][4] != label and not flush():
                             break
                         try:
-                            stmt = comma(translate_text(sp[1])) if TRANSLATE else sp[1]
+                            who = speaker_fr(label, done)
+                            stmt = comma(translate_text(stmt_en)) if TRANSLATE else stmt_en
                         except TranslationError:
                             fails[it["id"]] = fails.get(it["id"], 0) + 1
                             if fails[it["id"]] < 4:
                                 log("Traduction impossible pour l'instant, nouvel essai au prochain tour.")
                                 break
-                            stmt = sp[1]  # dernier recours : la déclaration en anglais
-                        pending.append((it, sp[0], stmt, is_important(it["title"])))
+                            who, stmt = label, stmt_en  # dernier recours : en anglais
+                        pending.append((it, who, stmt, is_important(it["title"]), label))
                         continue
                     if not flush():
                         break
