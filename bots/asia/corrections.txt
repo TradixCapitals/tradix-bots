@@ -20,3 +20,6 @@ par Ormuz = par le détroit d'Ormuz
 a dit que = a déclaré que
 j'y pense = j'y réfléchis
 J'y pense = J'y réfléchis
+En y réfléchissant = Il y réfléchit
+en y réfléchissant = il y réfléchit
+lui a déclaré que = lui a dit que

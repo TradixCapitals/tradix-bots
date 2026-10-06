@@ -108,7 +108,10 @@ def fetch_items():
             details = [html.unescape(re.sub(r"<[^>]+>", "", l)).strip(" \u2022\u25AA-") for l in parts]
             title = re.sub(r"^FinancialJuice:\s*", "", title)
             # 'Trump: Said X...' (discours rapporté) -> 'Trump said X...' : traité comme une phrase, pas comme une citation
-            title = re.sub(r"^([^:\d]{2,45}?):\s+(said|says|added|adds|told|tells|reiterates|reiterated|reportedly|has said|was asked)\b",
+            # 'Trump: told X. Thinking about it' -> 'Trump, when told X: Thinking about it' (on lui dit X, il répond)
+            title = re.sub(r"^([^:\d]{2,45}?):\s+(?:told|when told|asked about|asked if|asked whether)\s+(.+?)[.,;]\s+(.+)$",
+                           lambda m: f"{m.group(1)}, when told {m.group(2)}: {m.group(3)}", title, flags=re.I)
+            title = re.sub(r"^([^:\d]{2,45}?):\s+(said|says|added|adds|reiterates|reiterated|reportedly|has said)\b",
                            lambda m: f"{m.group(1)} {m.group(2).lower()}", title, flags=re.I)
             items.append({"id": guid, "title": title, "link": link, "time": hhmm,
                           "details": [d for d in details if d]})
