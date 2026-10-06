@@ -5,3 +5,7 @@ fonctionnaire = responsable
 fonctionnaires = responsables
 reporter = journaliste
 agissant comme médiateur = jouant le rôle de médiateur
+est compensé à = s'établit à
+sont compensés à = s'établissent à
+compensé à = s'établit à
+Le Trésor américain à = Le taux du Trésor américain à
