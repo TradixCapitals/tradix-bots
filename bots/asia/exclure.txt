@@ -33,3 +33,6 @@ BoC
 Brazil
 Mexico
 Turkey
+EU
+European
+Europe
