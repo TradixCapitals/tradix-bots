@@ -493,8 +493,8 @@ def fmt(item, english=False):
             a, f, p = (html.escape(g) for g in m.group(2, 3, 4))
             flag = tag_for(original, title) or "\u25AB\uFE0F"
             return (f"{flag} <i>{html.escape(subject)}</i>\n\n"
-                    f"<i>Publié : {a}{vs_forecast(m.group(2), m.group(3))}\n"
-                    f"Prévu : {f} \u00B7 Précédent : {p}</i>")
+                    f"<b><i>Publié : {a}</i></b>{vs_forecast(m.group(2), m.group(3))}\n"
+                    f"<i>Prévu : {f} \u00B7 Précédent : {p}</i>")
         return f"\u25AB\uFE0F {style(title, 'i')}{when}"  # autre annonce normale : une ligne compacte, italique
     tag = tag_for(original, title)
     head = f"\U0001F534 {tag} " if tag else "\U0001F534 "
