@@ -2,7 +2,7 @@ name: bots-marches
 
 on:
   schedule:
-    - cron: "*/30 * * * *"   # filet de sécurité : relance la chaîne si elle s'est arrêtée
+    - cron: "*/10 * * * *"   # filet de sécurité : relance la chaîne si elle s'est arrêtée
   workflow_dispatch:
 
 concurrency:                 # un seul lancement à la fois pour tout le workflow
@@ -63,7 +63,4 @@ jobs:
       - name: Relancer
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          # ne relance que si aucun autre lancement n'attend déjà son tour
-          n=$(gh run list -R ${{ github.repository }} --workflow bots.yml --json status --jq '[.[] | select(.status=="queued" or .status=="pending" or .status=="waiting")] | length')
-          if [ "$n" = "0" ]; then gh workflow run bots.yml --ref main -R ${{ github.repository }}; else echo "Un lancement attend déjà : pas de relance."; fi
+        run: gh workflow run bots.yml --ref main -R ${{ github.repository }}
