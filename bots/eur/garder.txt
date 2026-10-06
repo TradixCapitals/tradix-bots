@@ -11,3 +11,7 @@ tariff
 tariffs
 gold
 XAU
+LNG
+oil
+crude
+Middle East

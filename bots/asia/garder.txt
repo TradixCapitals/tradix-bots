@@ -11,3 +11,5 @@ tariffs
 semiconductor
 chip
 rare earth
+LNG
+Middle East
