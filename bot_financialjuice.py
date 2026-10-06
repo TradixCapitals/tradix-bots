@@ -333,11 +333,20 @@ def fix_fr(text):
     return text
 
 
+SOURCE_RE = re.compile(r"\s+[-\u2013\u2014]\s*(?:per\s+|via\s+|citing\s+|according\s+to\s+)?"
+                       r"([A-Z][\w.&'\u2019]*(?:\s+[A-Z][\w.&'\u2019]*){0,3})"   # le média : mots en majuscule
+                       r"(?:\s+(?!X\b)[a-z][\w'\u2019-]*){0,6}"                   # reporter, post, on... : retirés
+                       r"(?:\s+(?:X|Twitter))?\s*\.?\s*$")
+
+
 def translate_text(text):
     """Traduit en français (3 services gratuits en secours l'un de l'autre). Lève TranslationError si tous échouent."""
     text = text.strip()
     if not text:
         return text
+    src = SOURCE_RE.search(text)
+    if src and src.start() > 8:  # '... - NewsNation reporter on X' : source retirée avant traduction, remise à la fin
+        return f"{translate_text(text[:src.start()])} \u2013 {src.group(1).strip()}"
     if text in _cache:
         return _cache[text]
     for wait in (0, 3, 8):
