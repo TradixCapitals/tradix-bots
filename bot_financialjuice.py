@@ -315,7 +315,51 @@ def _mymemory(text):
     return out
 
 
-PROVIDERS = (("google", _google_gtx), ("google-bis", _google_chrome), ("mymemory", _mymemory))
+GROQ_KEY = CFG.get("GROQ_API_KEY", "").strip()
+GROQ_MODELS = [m.strip() for m in CFG.get("GROQ_MODELS", "").split(",") if m.strip()] or [
+    "openai/gpt-oss-120b", "qwen/qwen3-32b", "openai/gpt-oss-20b", "llama-3.1-8b-instant"]
+GROQ_DEAD = set()  # modèles indisponibles ou quota du jour atteint (pendant ce cycle)
+GROQ_PROMPT = (
+    "Tu es traducteur pour un canal Telegram francophone d'actualité des marchés financiers. "
+    "Traduis en français le titre de dépêche anglais fourni, dans un style de dépêche financière, clair, naturel et concis. "
+    "Règles : ne traduis jamais les noms de personnes, d'entreprises, de médias ni les tickers ; garde tous les chiffres exacts "
+    "(virgule décimale française, % collé au chiffre avec une espace avant) ; 'official' = 'responsable' ; "
+    "'Strait of Hormuz' ou 'Hormuz' = 'détroit d'Ormuz' ; 'bpd' = 'b/j' ; 'Fed' reste 'Fed' ; 'Treasury yields' = 'rendements des Treasuries' ; "
+    "'X: told ... Thinking about it' signifie que l'on a dit quelque chose à X et qu'il répond qu'il y réfléchit. "
+    "'auction' (Treasuries, Bund, OAT...) = 'adjudication' ; 'stops at' / 'clears at' = 'rendement de' ; "
+    "'US' / 'U.S.' = 'États-Unis' ou 'américain' (jamais 'US' en français) ; 'US-Iran talks' = 'pourparlers entre les États-Unis et l'Iran' ; "
+    "utilise des traits d'union normaux. "
+    "Ne commente pas, n'ajoute rien, ne mets pas de guillemets : réponds uniquement par la traduction.")
+
+
+def _groq(text):
+    if not GROQ_KEY:
+        raise ValueError("pas de clé Groq")
+    last = None
+    for model in GROQ_MODELS:
+        if model in GROQ_DEAD:
+            continue
+        body = json.dumps({"model": model, "temperature": 0.2, "max_tokens": 400,
+                           "messages": [{"role": "system", "content": GROQ_PROMPT}, {"role": "user", "content": text}]}).encode()
+        req = urllib.request.Request("https://api.groq.com/openai/v1/chat/completions", data=body, headers={
+            "Authorization": f"Bearer {GROQ_KEY}", "Content-Type": "application/json", "User-Agent": UA})
+        try:
+            with urllib.request.urlopen(req, timeout=20) as r:
+                out = json.loads(r.read())["choices"][0]["message"]["content"]
+        except urllib.error.HTTPError as e:
+            last = f"{model}: HTTP {e.code}"
+            if e.code in (400, 404, 413, 429, 403):  # modèle absent, quota atteint... : on passe au suivant
+                GROQ_DEAD.add(model)
+            continue
+        out = re.sub(r"<think>.*?</think>", "", out or "", flags=re.S).strip()
+        if len(out) > 1 and out[0] in '"\u00AB' and out[-1] in '"\u00BB':  # guillemets autour de toute la phrase
+            out = out[1:-1].strip()
+        if out:
+            return out
+    raise ValueError(last or "aucun modèle Groq disponible")
+
+
+PROVIDERS = (("groq", _groq), ("google", _google_gtx), ("google-bis", _google_chrome), ("mymemory", _mymemory))
 
 
 CORRECTIONS_PATH = os.path.join(BOT_DIR, "corrections.txt")
@@ -362,7 +406,8 @@ def translate_text(text):
             try:
                 out = fn(text)
                 if out:
-                    out = fix_fr(out)
+                    if name != "groq":  # corrections.txt : seulement pour la traduction Google (l'IA n'en a pas besoin)
+                        out = fix_fr(out)
                     _cache[text] = out
                     time.sleep(0.4)  # petite pause pour ne pas se faire limiter
                     return out
