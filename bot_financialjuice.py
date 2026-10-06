@@ -349,9 +349,31 @@ def custom_title(seg):
     return None
 
 
+INSTITUTIONS = {  # "ECB's Lane: ..." -> "Lane de la BCE : ..." (le nom de la personne n'est jamais traduit)
+    "ECB": "de la BCE", "Fed": "de la Fed", "FED": "de la Fed", "BoE": "de la BoE", "BOE": "de la BoE",
+    "SNB": "de la BNS", "BoJ": "de la BoJ", "BOJ": "de la BoJ", "BoC": "de la BoC", "BOC": "de la BoC",
+    "RBA": "de la RBA", "RBNZ": "de la RBNZ", "RBI": "de la RBI", "PBoC": "de la PBoC", "PBOC": "de la PBoC",
+    "BoK": "de la BoK", "BOK": "de la BoK", "Bundesbank": "de la Bundesbank", "Buba": "de la Bundesbank",
+    "Riksbank": "de la Riksbank", "Norges Bank": "de la Norges Bank", "IMF": "du FMI", "EU": "de l'UE",
+    "OPEC": "de l'OPEP", "Treasury": "du Trésor", "White House": "de la Maison-Blanche",
+}
+INST_RE = re.compile(r"^(?P<inst>[A-Z][A-Za-z ]{1,15}?)['\u2019]s\s+(?P<name>[A-Za-z][A-Za-z\-'\u2019. ]{1,30}?)\s*:\s*(?P<rest>.+)$", re.S)
+
+
+def speaker_head(title):
+    """'ECB's Lane: texte' -> ('Lane de la BCE', 'texte') ; None si ce n'est pas un discours d'une institution connue."""
+    m = INST_RE.match(title.strip())
+    if not m or m.group("inst") not in INSTITUTIONS or BLOCK_PARTS.search(title):
+        return None
+    return f"{m.group('name').strip()} {INSTITUTIONS[m.group('inst')]}", m.group("rest").strip()
+
+
 def to_french(title):
     if not TRANSLATE:
         return title
+    sp = speaker_head(title)
+    if sp:  # discours : nom gardé tel quel, seule la déclaration est traduite
+        return f"{sp[0]} : {comma(translate_text(sp[1]))}"
     out = []
     for seg in BLOCK_RE.split(title):
         m = BLOCK_PARTS.fullmatch(seg.strip())
