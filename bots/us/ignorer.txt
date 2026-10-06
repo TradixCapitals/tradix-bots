@@ -7,3 +7,6 @@ Implied Volatility
 Currency Strength
 Strength Chart
 FJElite
+ends comments
+ends remarks
+concludes remarks

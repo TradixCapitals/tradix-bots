@@ -50,3 +50,32 @@ Russia
 Ukraine
 China
 OPEC
+# Grandes entreprises et patrons américains
+JPMorgan
+Dimon
+Goldman Sachs
+Morgan Stanley
+Bank of America
+Citigroup
+Wells Fargo
+BlackRock
+Fink
+Berkshire
+Buffett
+Nvidia
+Apple
+Microsoft
+Amazon
+Alphabet
+Google
+Meta
+Tesla
+Musk
+OpenAI
+Anthropic
+Mag 7
+S&P
+Russell
+VIX
+MOO
+MOC

@@ -103,7 +103,10 @@ def fetch_items():
                 hhmm = parsedate_to_datetime(it.findtext("pubDate")).astimezone().strftime("%H:%M")
             except Exception:
                 hhmm = ""
-            items.append({"id": guid, "title": re.sub(r"^FinancialJuice:\s*", "", title), "link": link, "time": hhmm})
+            desc = html.unescape(it.findtext("description") or "")  # détails (ex. MOO Imbalance : chiffres par indice)
+            details = [re.sub(r"<[^>]+>", "", l).strip() for l in re.split(r"<br\s*/?>|\n", desc)]
+            items.append({"id": guid, "title": re.sub(r"^FinancialJuice:\s*", "", title), "link": link, "time": hhmm,
+                          "details": [d for d in details if d]})
     return items  # du plus récent au plus ancien
 
 
@@ -534,7 +537,30 @@ def figures(original, m):
     return html.escape(a), html.escape(f), html.escape(p)
 
 
+def full_text(item):
+    """Titre + détails, pour les filtres."""
+    return " ".join([item["title"]] + item.get("details", []))
+
+
+def fmt_details(item, english=False):
+    """Annonce avec plusieurs lignes de détails (ex. Déséquilibre MOO : S&P 500 -66 M$...)."""
+    original = item["title"]
+    head = original if english or not TRANSLATE else (custom_title(original) or comma(translate_text(original)))
+    lines = []
+    for d in item["details"]:
+        d = re.sub(r"\s*:\s*", " : ", d, count=1)
+        d = re.sub(r"(\d)\s*mln\b", r"\1 M$", d, flags=re.I)
+        d = re.sub(r"(\d)\s*bln\b", r"\1 Md$", d, flags=re.I)
+        lines.append(f"<i>{html.escape(comma(d))}</i>")
+    body = "\n".join(lines)
+    if is_important(full_text(item)):
+        return f"\U0001F534 <b><u>{html.escape(head.upper())}</u></b>\n\n{body}\n{SEP}"
+    return f"\u25AB\uFE0F <i><u>{html.escape(head)}</u></i>\n{body}"
+
+
 def fmt(item, english=False):
+    if item.get("details"):
+        return fmt_details(item, english)
     original = item["title"]
     title = original if english else to_french(original)
     hhmm = item.get("time", "")
@@ -672,10 +698,10 @@ def run():
                     return ok
 
                 for it in new:
-                    if is_ignored(it["title"]) or not is_wanted(it["title"]):  # graphiques, hors sujet : on passe
+                    if is_ignored(full_text(it)) or not is_wanted(full_text(it)):  # graphiques, hors sujet : on passe
                         seen.append(it["id"])
                         continue
-                    sp = speech_split(it["title"])
+                    sp = None if it.get("details") else speech_split(it["title"])
                     if sp:  # discours : on accumule les déclarations consécutives de la même personne
                         label, stmt_en, done = sp
                         if pending and pending[0][4] != label and not flush():

@@ -12,3 +12,5 @@ ISM Services Business Activity = ISM non manufacturier - Activité des affaires
 S&P Global Services PMI = PMI services
 S&P Global Composite PMI = Indice PMI composite de S&P Global
 S&P Global Manufacturing PMI = PMI manufacturier
+MOO Imbalance = Déséquilibre MOO (ordres à l'ouverture)
+MOC Imbalance = Déséquilibre MOC (ordres à la clôture)
