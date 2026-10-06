@@ -329,6 +329,18 @@ GROQ_PROMPT = (
     "'auction' (Treasuries, Bund, OAT...) = 'adjudication' ; 'stops at' / 'clears at' = 'rendement de' ; "
     "'US' / 'U.S.' = 'États-Unis' ou 'américain' (jamais 'US' en français) ; 'US-Iran talks' = 'pourparlers entre les États-Unis et l'Iran' ; "
     "utilise des traits d'union normaux. "
+    "Traduis TOUTE la phrase : ne supprime jamais une information ni une partie du titre. "
+    "Pour un conflit entre deux pays, écris 'la guerre entre X et Y' (jamais d'adjectif du type 'russo-ukrainienne'). "
+    "Traduis le SENS, jamais mot à mot : utilise les tournures qu'emploierait un journaliste financier français "
+    "('finish it' / 'finish the job' = 'en finir', 'nearing an end' = 'touche à sa fin', 'going away' = 'va disparaître'). "
+    "Si le titre a la forme 'Intervenant: déclaration', garde exactement cette forme : 'Intervenant : déclaration' "
+    "(un seul deux-points, après l'intervenant ; 'Trump on Iran' = 'Trump à propos de l'Iran'). "
+    "Exemples : 'Trump on Iran: We still have to finish it' -> 'Trump à propos de l'Iran : Il nous reste encore à en finir' ; "
+    "'Trump: Russia-Ukraine war is nearing an end' -> 'Trump : La guerre entre la Russie et l'Ukraine touche à sa fin' ; "
+    "'Trump, when told the federal gas tax needs suspending: Thinking about it' -> "
+    "'Trump, à qui l'on dit que la taxe fédérale sur l'essence devrait être suspendue : J'y réfléchis' ; "
+    "'Trump: Very soon you'll find out how we end Iran' -> 'Trump : Vous allez bientôt découvrir comment nous allons en finir avec l'Iran' ; "
+    "'Trump: Iran's drone-making capability will soon be gone' -> 'Trump : La capacité de l'Iran à fabriquer des drones disparaîtra bientôt'. "
     "Ne commente pas, n'ajoute rien, ne mets pas de guillemets : réponds uniquement par la traduction.")
 
 
@@ -474,6 +486,20 @@ def speaker_fr(label, done):
     if done or not TRANSLATE or len(label.split()) == 1:
         return label
     return translate_text(label)
+
+
+def speech_fr(label, stmt_en, done):
+    """Traduit 'Intervenant: déclaration' EN ENTIER (le contexte aide la traduction), puis sépare après coup."""
+    if not TRANSLATE:
+        return label, stmt_en
+    who_en = label if not done else label  # pour une institution ('Lane de la BCE'), le nom français est déjà prêt
+    fr = translate_text(f"{who_en}: {stmt_en}")
+    m = re.match(r"^\s*([^:]{1,80}?)\s*:\s*(.+)$", fr, re.S)
+    if m:
+        who = label if done else m.group(1).strip()
+        stmt = m.group(2).strip()
+        return who, comma(stmt[:1].upper() + stmt[1:])
+    return speaker_fr(label, done), comma(translate_text(stmt_en))  # découpage impossible : ancienne méthode
 
 
 def to_french(title):
@@ -825,8 +851,7 @@ def run():
                         if pending and pending[0][4] != label and not flush():
                             break
                         try:
-                            who = speaker_fr(label, done)
-                            stmt = comma(translate_text(stmt_en)) if TRANSLATE else stmt_en
+                            who, stmt = speech_fr(label, stmt_en, done)
                         except TranslationError:
                             fails[it["id"]] = fails.get(it["id"], 0) + 1
                             if fails[it["id"]] < 4:
