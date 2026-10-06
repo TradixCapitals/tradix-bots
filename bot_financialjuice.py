@@ -106,7 +106,11 @@ def fetch_items():
             desc = html.unescape(it.findtext("description") or "")  # détails (ex. MOO Imbalance : chiffres par indice)
             parts = re.split(r"<br\s*/?>|</?li[^>]*>|</?p[^>]*>|</?ul[^>]*>|</?ol[^>]*>|</?div[^>]*>|\n", desc, flags=re.I)
             details = [html.unescape(re.sub(r"<[^>]+>", "", l)).strip(" \u2022\u25AA-") for l in parts]
-            items.append({"id": guid, "title": re.sub(r"^FinancialJuice:\s*", "", title), "link": link, "time": hhmm,
+            title = re.sub(r"^FinancialJuice:\s*", "", title)
+            # 'Trump: Said X...' (discours rapporté) -> 'Trump said X...' : traité comme une phrase, pas comme une citation
+            title = re.sub(r"^([^:\d]{2,45}?):\s+(said|says|added|adds|told|tells|reiterates|reiterated|reportedly|has said|was asked)\b",
+                           lambda m: f"{m.group(1)} {m.group(2).lower()}", title, flags=re.I)
+            items.append({"id": guid, "title": title, "link": link, "time": hhmm,
                           "details": [d for d in details if d]})
     return items  # du plus récent au plus ancien
 

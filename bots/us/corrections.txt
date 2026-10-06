@@ -17,3 +17,6 @@ continue de circuler par Ormuz = continue de transiter par le détroit d'Ormuz
 circuler par Ormuz = transiter par le détroit d'Ormuz
 circule par Ormuz = transite par le détroit d'Ormuz
 par Ormuz = par le détroit d'Ormuz
+a dit que = a déclaré que
+j'y pense = j'y réfléchis
+J'y pense = J'y réfléchis
