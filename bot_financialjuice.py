@@ -636,6 +636,32 @@ def fmt_speech(group):
     return f"\u25AB\uFE0F \U0001F399 <u>{name}</u>\n\n{body}"
 
 
+ALERTE_PATH = os.path.join(BOT_DIR, "alerte.txt")
+ALERTE_DEFAUT = ["Iran, Iranian, Tehran, Hormuz, IRGC, Khamenei, Persian Gulf = IRAN \u00B7 ORMUZ"]
+LINE = "\u2501" * 14
+
+
+def alert_label(text):
+    """alerte.txt : 'mot1, mot2 = TITRE'. Renvoie le titre de l'alerte si l'annonce en parle."""
+    for line in read_terms(ALERTE_PATH, ALERTE_DEFAUT, "Alertes spéciales (format le plus visible)",
+                           "Format : mot1, mot2 = TITRE DE L'ALERTE. Une annonce qui contient un de ces mots passe en alerte."):
+        words, _, label = line.rpartition("=")
+        terms = [w.strip() for w in words.split(",") if w.strip()]
+        if terms and label.strip() and has_term(terms, text):
+            return label.strip()
+    return ""
+
+
+def alertify(text, original):
+    """Habille un message en ALERTE (bandeau + cadre) s'il concerne un sujet d'alerte."""
+    label = alert_label(original)
+    if not label:
+        return text, False
+    body = re.sub(r"^(?:\U0001F534|\u25AB\uFE0F)\s*", "", text)
+    body = re.sub(r"\n?" + re.escape(SEP) + r"\s*$", "", body).strip()
+    return f"\U0001F6A8 <b>ALERTE {html.escape(label)}</b> \U0001F6A8\n{LINE}\n{body}\n{LINE}", True
+
+
 def load_seen():
     if os.path.exists(SEEN_PATH):
         try:
@@ -719,7 +745,8 @@ def run():
                             size += len(pending[0][2]) + 10
                             group.append(pending.pop(0))
                         imp = any(g[3] for g in group)
-                        if send(fmt_speech(group), silent=SILENCIEUX and not imp):
+                        msg, alerte = alertify(fmt_speech(group), " ".join(g[0]["title"] for g in group))
+                        if send(msg, silent=SILENCIEUX and not imp and not alerte):
                             seen.extend(g[0]["id"] for g in group)
                             log(f"Envoyé : {group[0][1]} ({len(group)} déclaration(s))")
                         else:
@@ -757,7 +784,8 @@ def run():
                             log("Traduction impossible pour l'instant, nouvel essai au prochain tour.")
                             break  # on garde l'ordre : on réessaiera ce titre
                         text = fmt(it, english=True)  # dernier recours : le titre en anglais
-                    if send(text, silent=SILENCIEUX and not is_important(it["title"])):
+                    text, alerte = alertify(text, full_text(it))
+                    if send(text, silent=SILENCIEUX and not is_important(full_text(it)) and not alerte):
                         seen.append(it["id"])
                         log("Envoyé : " + it["title"][:80])
                     else:
