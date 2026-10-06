@@ -20,3 +20,6 @@ stimulus
 emergency
 Services PMI
 Manufacturing PMI
+Fed
+HKMA
+Hong Kong Monetary Authority
