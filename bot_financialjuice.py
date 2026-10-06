@@ -329,8 +329,8 @@ GROQ_PROMPT = (
     "'auction' (Treasuries, Bund, OAT...) = 'adjudication' ; 'stops at' / 'clears at' = 'rendement de' ; "
     "'US' / 'U.S.' = 'États-Unis' ou 'américain' (jamais 'US' en français) ; 'US-Iran talks' = 'pourparlers entre les États-Unis et l'Iran' ; "
     "utilise des traits d'union normaux. "
-    "Un titre qui commence par un pays suivi de deux-points ('Japan: August real wages rise 1.5% YoY - government') "
-    "se traduit en phrase : 'Au Japon, les salaires réels augmentent de 1,5 % en août sur un an – selon le gouvernement'. "
+    "Un titre qui commence par un pays suivi de deux-points garde cette forme : "
+    "'Japan: August real wages rise 1.5% YoY - government' -> 'Japon : les salaires réels augmentent de 1,5 % en août sur un an – selon le gouvernement'. "
     "'Tankan: X' = 'Tankan : X' ('Tankan' est l'enquête de la BoJ, ne le traduis pas). '- government' = '– selon le gouvernement'. "
     "Une mention de source à la fin ('- interview source', '- source', '- sources') se traduit '– selon une source' / '– selon des sources'. "
     "Fonctions : 'US VP Vance' = 'Le vice-président américain Vance' ; 'US Treasury Secretary X' = 'Le secrétaire américain au Trésor X' ; "
@@ -578,7 +578,7 @@ def style(title, base):
         t = html.escape(t)
         return f"<b><i>{t}</i></b>" if base == "bi" else f"<i>{t}</i>"
     m = SPEAKER_RE.match(title)
-    if m and len(m.group(1).split()) <= 5 and m.group(1).strip().lower() not in NOT_SPEAKER and not is_place(m.group(1)):
+    if m and len(m.group(1).split()) <= 5 and m.group(1).strip().lower() not in NOT_SPEAKER:
         name, sep, rest = m.groups()
         return wrap(name).replace(html.escape(name), f"<u>{html.escape(name)}</u>") + wrap(sep + rest)
     return wrap(title)
