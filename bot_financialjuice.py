@@ -417,6 +417,9 @@ def translate_text(text):
                     r"(?:\s+(?:interview|say|says|said|familiar.*))?\s*\)?\s*\.?\s*$", text, re.I)
     if gen and gen.start() > 8:  # '... - interview source' / '- sources' -> '– selon une source' / '– selon des sources'
         return f"{translate_text(text[:gen.start()])} \u2013 selon {'des sources' if gen.group(1).lower() == 'sources' else 'une source'}"
+    rep = re.search(r",\s*(?:the\s+)?([A-Z][\w.&'\u2019]*(?:\s+[A-Z][\w.&'\u2019]*){0,3})\s+(?:reports?|reported|says|said|writes|wrote)\s*\.?\s*$", text)
+    if rep and rep.start() > 8:  # '..., Kyodo reports' -> '... – Kyodo'
+        return f"{translate_text(text[:rep.start()])} \u2013 {rep.group(1).strip()}"
     src = SOURCE_RE.search(text)
     if src and src.start() > 8:  # '... - NewsNation reporter on X' : source retirée avant traduction, remise à la fin
         return f"{translate_text(text[:src.start()])} \u2013 {src.group(1).strip()}"
@@ -475,9 +478,12 @@ INST_RE = re.compile(r"^(?P<inst>[A-Z][A-Za-z ]{1,15}?)['\u2019]s\s+(?P<name>[A-
 def speaker_head(title):
     """'ECB's Lane: texte' -> ('Lane de la BCE', 'texte') ; None si ce n'est pas un discours d'une institution connue."""
     m = INST_RE.match(title.strip())
-    if not m or m.group("inst") not in INSTITUTIONS or BLOCK_PARTS.search(title):
+    inst = {k.upper(): v for k, v in INSTITUTIONS.items()}.get(m.group("inst").upper()) if m else None  # BoJ / BOJ / Boj
+    if not inst or BLOCK_PARTS.search(title):
         return None
-    return f"{m.group('name').strip()} {INSTITUTIONS[m.group('inst')]}", m.group("rest").strip()
+    name = m.group("name").strip()
+    name = " ".join(w[:1].upper() + w[1:] for w in name.split())  # 'sato' -> 'Sato'
+    return f"{name} {inst}", m.group("rest").strip()
 
 
 def speech_split(title):
