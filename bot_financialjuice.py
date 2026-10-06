@@ -513,6 +513,18 @@ def fmt(item, english=False):
     return f"{head}{style(title, 'bi')}{when}\n{SEP}"  # autre annonce importante : gras italique
 
 
+def fmt_speech(group):
+    """Plusieurs déclarations d'une même personne -> un seul message (nom en tête, une ligne par déclaration)."""
+    name = html.escape(group[0][1])
+    lines = [f"<i>{html.escape(g[2])}</i>" for g in group]
+    if len(lines) > 1:
+        lines = [f"\u2022 {l}" for l in lines]
+    body = "\n\n".join(lines)
+    if any(g[3] for g in group):  # au moins une déclaration importante : rond rouge + sonnerie
+        return f"\U0001F534 \U0001F399 <b><u>{name}</u></b>\n\n{body}\n{SEP}"
+    return f"\u25AB\uFE0F \U0001F399 <u>{name}</u>\n\n{body}"
+
+
 def load_seen():
     if os.path.exists(SEEN_PATH):
         try:
@@ -585,10 +597,45 @@ def run():
             else:
                 known = set(seen)
                 new = [i for i in reversed(items) if i["id"] not in known]
+                pending = []  # discours en cours de regroupement : (titre, nom, déclaration, important)
+
+                def flush():
+                    """Envoie les déclarations regroupées (découpées si le message serait trop long)."""
+                    ok = True
+                    while pending:
+                        group, size = [], 0
+                        while pending and (not group or size + len(pending[0][2]) < 3500):
+                            size += len(pending[0][2]) + 10
+                            group.append(pending.pop(0))
+                        imp = any(g[3] for g in group)
+                        if send(fmt_speech(group), silent=SILENCIEUX and not imp):
+                            seen.extend(g[0]["id"] for g in group)
+                            log(f"Envoyé : {group[0][1]} ({len(group)} déclaration(s))")
+                        else:
+                            pending.clear()  # pas mémorisées : renvoyées au prochain tour
+                            ok = False
+                    return ok
+
                 for it in new:
                     if is_ignored(it["title"]) or not is_wanted(it["title"]):  # graphiques, hors sujet : on passe
                         seen.append(it["id"])
                         continue
+                    sp = speaker_head(it["title"])
+                    if sp:  # discours : on accumule les déclarations consécutives de la même personne
+                        if pending and pending[0][1] != sp[0] and not flush():
+                            break
+                        try:
+                            stmt = comma(translate_text(sp[1])) if TRANSLATE else sp[1]
+                        except TranslationError:
+                            fails[it["id"]] = fails.get(it["id"], 0) + 1
+                            if fails[it["id"]] < 4:
+                                log("Traduction impossible pour l'instant, nouvel essai au prochain tour.")
+                                break
+                            stmt = sp[1]  # dernier recours : la déclaration en anglais
+                        pending.append((it, sp[0], stmt, is_important(it["title"])))
+                        continue
+                    if not flush():
+                        break
                     try:
                         text = fmt(it)
                     except TranslationError:
@@ -602,6 +649,7 @@ def run():
                         log("Envoyé : " + it["title"][:80])
                     else:
                         break  # on réessaiera au prochain tour, sans perdre l'ordre
+                flush()
                 if new:
                     save_seen(seen)
         except KeyboardInterrupt:
