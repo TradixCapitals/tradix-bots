@@ -203,7 +203,7 @@ def has_term(terms, title):
     """Mot entier. Les sigles en majuscules (US, CPI...) sont sensibles à la casse, pour ne pas confondre US et us."""
     for x in terms:
         flags = 0 if (x.isupper() and len(x) <= 5) else re.IGNORECASE
-        if re.search(r"(?<!\w)" + re.escape(x) + r"(?!\w)", title, flags):
+        if re.search(r"(?<!\w)" + re.escape(x) + r"(?:s|es)?(?!\w)", title, flags):  # pluriel accepté (Houthi -> Houthis)
             return True
     return False
 
