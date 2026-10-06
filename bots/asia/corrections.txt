@@ -1,0 +1,7 @@
+# Corrections de traduction
+# Format : mauvaise traduction = bonne traduction (en français). Appliqué à chaque annonce.
+# Les lignes qui commencent par # sont ignorées. Modifie sans arrêter le bot.
+fonctionnaire = responsable
+fonctionnaires = responsables
+reporter = journaliste
+agissant comme médiateur = jouant le rôle de médiateur

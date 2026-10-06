@@ -311,6 +311,28 @@ def _mymemory(text):
 PROVIDERS = (("google", _google_gtx), ("google-bis", _google_chrome), ("mymemory", _mymemory))
 
 
+CORRECTIONS_PATH = os.path.join(BOT_DIR, "corrections.txt")
+CORRECTIONS_DEFAUT = [
+    "fonctionnaire = responsable", "fonctionnaires = responsables", "reporter = journaliste",
+    "agissant comme médiateur = jouant le rôle de médiateur",
+]
+
+
+def fix_fr(text):
+    """corrections.txt : 'mot traduit = bon mot', appliqué après la traduction (majuscule conservée)."""
+    # '... - NewsNation reporter' -> '... – selon un journaliste de NewsNation'
+    text = re.sub(r"\s+[-\u2013]\s*([A-Z][\w.&' ]{1,30}?)\s+(?:reporter|journalist|correspondent)\s*$",
+                  " \u2013 selon un journaliste de " + r"\1", text)
+    for line in read_terms(CORRECTIONS_PATH, CORRECTIONS_DEFAUT, "Corrections de traduction",
+                           "Format : mauvaise traduction = bonne traduction (en français). Appliqué à chaque annonce."):
+        bad, _, good = line.partition("=")
+        bad, good = bad.strip(), good.strip()
+        if bad and good:
+            text = re.sub(r"(?<!\w)" + re.escape(bad) + r"(?!\w)",
+                          lambda m: good[:1].upper() + good[1:] if m.group(0)[:1].isupper() else good, text, flags=re.I)
+    return text
+
+
 def translate_text(text):
     """Traduit en français (3 services gratuits en secours l'un de l'autre). Lève TranslationError si tous échouent."""
     text = text.strip()
@@ -324,6 +346,7 @@ def translate_text(text):
             try:
                 out = fn(text)
                 if out:
+                    out = fix_fr(out)
                     _cache[text] = out
                     time.sleep(0.4)  # petite pause pour ne pas se faire limiter
                     return out
