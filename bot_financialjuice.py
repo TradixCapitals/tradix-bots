@@ -329,6 +329,7 @@ GROQ_PROMPT = (
     "'auction' (Treasuries, Bund, OAT...) = 'adjudication' ; 'stops at' / 'clears at' = 'rendement de' ; "
     "'US' / 'U.S.' = 'États-Unis' ou 'américain' (jamais 'US' en français) ; 'US-Iran talks' = 'pourparlers entre les États-Unis et l'Iran' ; "
     "utilise des traits d'union normaux. "
+    "Une mention de source à la fin ('- interview source', '- source', '- sources') se traduit '– selon une source' / '– selon des sources'. "
     "Fonctions : 'US VP Vance' = 'Le vice-président américain Vance' ; 'US Treasury Secretary X' = 'Le secrétaire américain au Trésor X' ; "
     "'Saudi FM' = 'Le ministre saoudien des Affaires étrangères' ; 'Unclear how' = 'On ne sait pas clairement comment'. "
     "Traduis TOUTE la phrase : ne supprime jamais une information ni une partie du titre. "
@@ -398,7 +399,7 @@ def fix_fr(text):
     return text
 
 
-SOURCE_RE = re.compile(r"\s+[-\u2013\u2014]\s*(?:per\s+|via\s+|citing\s+|according\s+to\s+)?"
+SOURCE_RE = re.compile(r"\s+[-\u2010-\u2015\u2212]\s*(?:per\s+|via\s+|citing\s+|according\s+to\s+)?"
                        r"([A-Z][\w.&'\u2019]*(?:\s+[A-Z][\w.&'\u2019]*){0,3})"   # le média : mots en majuscule
                        r"(?:\s+(?!X\b)[a-z][\w'\u2019-]*){0,6}"                   # reporter, post, on... : retirés
                        r"(?:\s+(?:X|Twitter))?\s*\.?\s*$")
@@ -409,7 +410,8 @@ def translate_text(text):
     text = text.strip()
     if not text:
         return text
-    gen = re.search(r"\s+[-\u2013\u2014]\s*(?:interview(?:ed)?\s+|anonymous\s+|unnamed\s+)?(sources?)(?:\s+(?:say|says|said|familiar.*))?\s*\.?\s*$", text, re.I)
+    gen = re.search(r"\s*[-\u2010-\u2015\u2212(]\s*(?:interview(?:ed)?|anonymous|unnamed|an?)?[\s:,/-]*(?:with\s+|w/\s*)?(?:an?\s+)?(sources?)"
+                    r"(?:\s+(?:interview|say|says|said|familiar.*))?\s*\)?\s*\.?\s*$", text, re.I)
     if gen and gen.start() > 8:  # '... - interview source' / '- sources' -> '– selon une source' / '– selon des sources'
         return f"{translate_text(text[:gen.start()])} \u2013 selon {'des sources' if gen.group(1).lower() == 'sources' else 'une source'}"
     src = SOURCE_RE.search(text)
