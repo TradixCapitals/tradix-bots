@@ -4,7 +4,7 @@
 donnee: Japan, Japanese, BoJ, Ueda, Nikkei, TOPIX, Tankan, JPY, Yen = 🇯🇵
 donnee: Hong Kong, Hang Seng = 🇭🇰
 donnee: China, Chinese, PBoC, Yuan, CNY, CNH, Caixin, Shanghai, Shenzhen = 🇨🇳
-donnee: Australia, Australian, RBA, ASX, AUD = 🇦🇺
+donnee: Australia, Australian, RBA, ASX, AUD, AIG, Westpac, NAB = 🇦🇺
 donnee: New Zealand, RBNZ, NZD = 🇳🇿
 donnee: India, Indian, RBI, Nifty, Sensex = 🇮🇳
 donnee: Korea, Korean, BoK, Kospi = 🇰🇷

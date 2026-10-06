@@ -329,6 +329,9 @@ GROQ_PROMPT = (
     "'auction' (Treasuries, Bund, OAT...) = 'adjudication' ; 'stops at' / 'clears at' = 'rendement de' ; "
     "'US' / 'U.S.' = 'États-Unis' ou 'américain' (jamais 'US' en français) ; 'US-Iran talks' = 'pourparlers entre les États-Unis et l'Iran' ; "
     "utilise des traits d'union normaux. "
+    "Un titre qui commence par un pays suivi de deux-points ('Japan: August real wages rise 1.5% YoY - government') "
+    "se traduit en phrase : 'Au Japon, les salaires réels augmentent de 1,5 % en août sur un an – selon le gouvernement'. "
+    "'Tankan: X' = 'Tankan : X' ('Tankan' est l'enquête de la BoJ, ne le traduis pas). '- government' = '– selon le gouvernement'. "
     "Une mention de source à la fin ('- interview source', '- source', '- sources') se traduit '– selon une source' / '– selon des sources'. "
     "Fonctions : 'US VP Vance' = 'Le vice-président américain Vance' ; 'US Treasury Secretary X' = 'Le secrétaire américain au Trésor X' ; "
     "'Saudi FM' = 'Le ministre saoudien des Affaires étrangères' ; 'unclear' = 'reste flou' / 'n'est pas clair' (style court) ; "
@@ -494,9 +497,25 @@ def speech_split(title):
     if BLOCK_PARTS.search(title):
         return None
     m = SPEAKER_RE.match(title.strip())
-    if m and len(m.group(1).split()) <= 5 and m.group(1).strip().lower() not in NOT_SPEAKER:
+    if m and len(m.group(1).split()) <= 5 and m.group(1).strip().lower() not in NOT_SPEAKER and not is_place(m.group(1)):
         return m.group(1).strip(), m.group(3).strip(), False
     return None
+
+
+NOT_PERSON = {"tankan", "survey", "poll", "data", "report", "reports", "analysts", "markets", "market", "government", "govt",
+              "official data", "statistics", "census", "ism", "pmi", "cpi", "gdp", "eia", "api", "opec", "imf data"}
+
+
+def is_place(label):
+    """'Japan', 'South Korea', 'Tankan'... ne sont pas des personnes qui parlent : pas de format discours."""
+    l = label.strip().lower()
+    if l in NOT_PERSON:
+        return True
+    places = {t.lower() for t in read_terms(FORT_PATH, STRONG_US, "", "") + read_terms(EXCLURE_PATH, NON_US, "", "")
+              if " " in t or t[:1].isupper() and not t.isupper()}
+    return l in places or l in {"us", "u.s.", "uk", "eu", "japan", "china", "india", "australia", "korea", "south korea",
+                                "new zealand", "taiwan", "hong kong", "singapore", "germany", "france", "italy", "spain",
+                                "eurozone", "canada", "switzerland", "russia", "ukraine", "iran", "israel", "saudi arabia"}
 
 
 def speaker_fr(label, done):
@@ -559,7 +578,7 @@ def style(title, base):
         t = html.escape(t)
         return f"<b><i>{t}</i></b>" if base == "bi" else f"<i>{t}</i>"
     m = SPEAKER_RE.match(title)
-    if m and len(m.group(1).split()) <= 5 and m.group(1).strip().lower() not in NOT_SPEAKER:
+    if m and len(m.group(1).split()) <= 5 and m.group(1).strip().lower() not in NOT_SPEAKER and not is_place(m.group(1)):
         name, sep, rest = m.groups()
         return wrap(name).replace(html.escape(name), f"<u>{html.escape(name)}</u>") + wrap(sep + rest)
     return wrap(title)
@@ -598,7 +617,7 @@ def tag_for(original, title):
                 return emoji
         return "\U0001F4CA"
     m = SPEAKER_RE.match(title)
-    if m and len(m.group(1).split()) <= 5 and m.group(1).strip().lower() not in NOT_SPEAKER:
+    if m and len(m.group(1).split()) <= 5 and m.group(1).strip().lower() not in NOT_SPEAKER and not is_place(m.group(1)):
         return "\U0001F399"  # micro : discours
     for words, emoji in labels("autre"):
         if has_term(words, original):
