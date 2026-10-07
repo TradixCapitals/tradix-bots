@@ -133,11 +133,17 @@ def date_fr(d):
     return f"{JOURS[d.weekday()]} {d.day} {MOIS[d.month - 1]}"
 
 
+PHRASES_AGENDA = [
+    "🔔 Toutes ces annonces en direct et en français sur Telegram : lien en bio",
+    "📲 Suivez chaque publication en temps réel sur nos canaux Telegram (lien en bio)",
+    "⚡ Les chiffres tombent d'abord sur Telegram : lien en bio",
+    "➡️ Le live de ces annonces, gratuit sur Telegram : lien en bio",
+]
+
+
 def phrase_du_jour(d):
-    """Phrase d'appel un jour sur deux, en changeant de phrase."""
-    phrases = [l for l in x_drafts.lire("signature.txt", x_drafts.SIGNATURES_DEFAUT) if l]
-    n = d.toordinal()
-    return phrases[(n // 2) % len(phrases)] if phrases and n % 2 == 0 else ""
+    """Phrase d'appel vers les canaux, toujours présente sur l'agenda, différente d'un jour à l'autre."""
+    return PHRASES_AGENDA[d.toordinal() % len(PHRASES_AGENDA)]
 
 
 def agenda_jour(evts, jour):
