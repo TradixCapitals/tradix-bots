@@ -17,6 +17,7 @@ Usage :
     python3 x_drafts.py --test      envoie 5 brouillons de test, sans notification
 """
 import getpass
+import hashlib
 import html
 import json
 import os
@@ -46,7 +47,14 @@ HASHTAGS_DEFAUT = [
     "XRP = #XRP",
     "BNB = #BNB",
 ]
-SIGNATURE_DEFAUT = ""  # pas de signature par défaut (modifiable dans x/signature.txt)
+SIGNATURES_DEFAUT = [
+    "📲 En direct et gratuit sur Telegram : lien en bio",
+    "🔔 Ne ratez plus une annonce : nos canaux Telegram sont en bio",
+    "Les annonces tombent d'abord sur Telegram 📲 lien en bio",
+    "➡️ Le live complet sur Telegram, lien en bio",
+    "Alertes en temps réel, en français et gratuites : lien en bio",
+]
+FREQUENCE_SIGNATURE = 3  # une phrase d'appel environ 1 tweet sur 3, en changeant de phrase à chaque fois
 
 
 def lire(nom, defaut):
@@ -202,8 +210,10 @@ MAX_TWEETS = 4  # au-delà, le reste est laissé de côté (les points les plus 
 
 def pied_de(texte):
     tags = hashtags(texte)
-    sig = [l for l in lire("signature.txt", [SIGNATURE_DEFAUT]) if l]
-    pied = ([" ".join(tags)] if tags else []) + ([sig[0]] if sig else [])
+    phrases = [l for l in lire("signature.txt", SIGNATURES_DEFAUT) if l]
+    n = int(hashlib.md5(texte.encode("utf-8")).hexdigest(), 16)
+    sig = phrases[(n >> 16) % len(phrases)] if phrases and n % FREQUENCE_SIGNATURE == 0 else ""
+    pied = ([" ".join(tags)] if tags else []) + ([sig] if sig else [])
     return ("\n\n" + "\n".join(pied)) if pied else ""
 
 

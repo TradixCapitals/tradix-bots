@@ -1,2 +1,7 @@
-# Ligne ajoutée en bas de chaque brouillon X. Vide = pas de signature.
-# Exemple : ⚡ Le live des marchés en français : lien en bio
+# Phrases d'appel vers Telegram, ajoutées en bas d'environ 1 tweet sur 3 (une phrase différente à chaque fois).
+# Une phrase par ligne. Ajoute, modifie ou supprime librement. Fichier vide = jamais de phrase.
+📲 En direct et gratuit sur Telegram : lien en bio
+🔔 Ne ratez plus une annonce : nos canaux Telegram sont en bio
+Les annonces tombent d'abord sur Telegram 📲 lien en bio
+➡️ Le live complet sur Telegram, lien en bio
+Alertes en temps réel, en français et gratuites : lien en bio
