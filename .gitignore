@@ -6,3 +6,4 @@ __pycache__/
 .telegram_token
 .DS_Store
 crypto/*/*.json
+x_compteur.json

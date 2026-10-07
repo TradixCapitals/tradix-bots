@@ -17,7 +17,6 @@ Usage :
     python3 x_drafts.py --test      envoie 5 brouillons de test, sans notification
 """
 import getpass
-import hashlib
 import html
 import json
 import os
@@ -208,16 +207,40 @@ def structurer(message_html, source=""):
 MAX_TWEETS = 4  # au-delà, le reste est laissé de côté (les points les plus récents passent en premier)
 
 
-def pied_de(texte):
-    tags = hashtags(texte)
+_COMPTEUR = {"n": 0}
+
+
+def prochaine_phrase():
+    """Phrase d'appel pour la prochaine annonce : une annonce sur FREQUENCE_SIGNATURE, en alternant les phrases.
+
+    Le compteur est gardé dans le fichier X_COMPTEUR (sauvegardé entre deux cycles des bots), sinon en mémoire.
+    """
+    chemin = os.environ.get("X_COMPTEUR", "")
+    n = _COMPTEUR["n"]
+    if chemin:
+        try:
+            n = int(json.load(open(chemin, encoding="utf-8")).get("n", 0))
+        except (OSError, ValueError, AttributeError):
+            n = 0
+    _COMPTEUR["n"] = n + 1
+    if chemin:
+        try:
+            json.dump({"n": n + 1}, open(chemin, "w", encoding="utf-8"))
+        except OSError:
+            pass
     phrases = [l for l in lire("signature.txt", SIGNATURES_DEFAUT) if l]
-    n = int(hashlib.md5(texte.encode("utf-8")).hexdigest(), 16)
-    sig = phrases[(n >> 16) % len(phrases)] if phrases and n % FREQUENCE_SIGNATURE == 0 else ""
-    pied = ([" ".join(tags)] if tags else []) + ([sig] if sig else [])
+    if not phrases or n % FREQUENCE_SIGNATURE != FREQUENCE_SIGNATURE - 1:
+        return ""
+    return phrases[(n // FREQUENCE_SIGNATURE) % len(phrases)]
+
+
+def pied_de(texte, phrase=""):
+    tags = hashtags(texte)
+    pied = ([" ".join(tags)] if tags else []) + ([phrase] if phrase else [])
     return ("\n\n" + "\n".join(pied)) if pied else ""
 
 
-def tweets(message_html, source=""):
+def tweets(message_html, source="", phrase=""):
     """Découpe l'annonce en tweets complets de 280 caractères maximum, sans couper une phrase.
 
     Une annonce courte = 1 tweet. Une longue série (ex. minutes de la Fed) = plusieurs tweets autonomes,
@@ -234,20 +257,23 @@ def tweets(message_html, source=""):
     def fermer():
         if courant:
             t = assembler(courant)
-            sortie.append(t + pied_de(t))
+            sortie.append(t + pied_de(t, phrase))
             courant.clear()
 
     for pt in points:
         essai = assembler(courant + [pt])
-        if poids(essai + pied_de(essai)) <= LIMITE:
+        if poids(essai + pied_de(essai, phrase)) <= LIMITE:
             courant.append(pt)
             continue
         fermer()
         seul = assembler([pt])
-        place = LIMITE - poids(pied_de(seul)) - (poids(titre) + 2 if titre else 0)
-        courant.append(pt if poids(seul + pied_de(seul)) <= LIMITE else couper_phrase(pt, place))
+        place = LIMITE - poids(pied_de(seul, phrase)) - (poids(titre) + 2 if titre else 0)
+        courant.append(pt if poids(seul + pied_de(seul, phrase)) <= LIMITE else couper_phrase(pt, place))
     fermer()
-    return sortie[:MAX_TWEETS]
+    sortie = sortie[:MAX_TWEETS]
+    if phrase and len(sortie) > 1:  # annonce découpée : la phrase d'appel seulement sur le dernier tweet
+        sortie = [t[: -len(phrase)].rstrip("\n") for t in sortie[:-1]] + [sortie[-1]]
+    return sortie
 
 
 def couper_phrase(texte, maxi):
@@ -286,7 +312,7 @@ def brouillon(message_html, source="", silencieux=False):
     if not (TOKEN and CHAT_ID):
         return False
     try:
-        liste = tweets(message_html, source)
+        liste = tweets(message_html, source, prochaine_phrase())
     except Exception as e:
         print("Brouillon X impossible :", e, flush=True)
         return False

@@ -40,6 +40,7 @@ jobs:
           CYCLE_SECONDS: 270
           X_DRAFTS_TOKEN: ${{ secrets.X_DRAFTS_TOKEN }}
           X_DRAFTS_CHAT_ID: ${{ secrets.X_DRAFTS_CHAT_ID }}
+          X_COMPTEUR: crypto/${{ matrix.bot }}/x_compteur.json
         run: python3 crypto/${{ matrix.bot }}/${{ matrix.script }} --cycle
 
       - name: Sauvegarder la mémoire

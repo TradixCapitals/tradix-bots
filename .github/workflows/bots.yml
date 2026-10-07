@@ -31,7 +31,9 @@ jobs:
       - name: Restaurer la mémoire des titres déjà envoyés
         uses: actions/cache/restore@v4
         with:
-          path: bots/${{ matrix.bot }}/seen.json
+          path: |
+            bots/${{ matrix.bot }}/seen.json
+            bots/${{ matrix.bot }}/x_compteur.json
           key: seen-${{ matrix.bot }}-none
           restore-keys: seen-${{ matrix.bot }}-
 
@@ -43,6 +45,7 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           CYCLE_SECONDS: ${{ matrix.cycle }}
           X_SOURCE: ${{ matrix.x }}
+          X_COMPTEUR: bots/${{ matrix.bot }}/x_compteur.json
           X_DRAFTS_TOKEN: ${{ secrets.X_DRAFTS_TOKEN }}
           X_DRAFTS_CHAT_ID: ${{ secrets.X_DRAFTS_CHAT_ID }}
         run: |
@@ -53,7 +56,9 @@ jobs:
         if: always()
         uses: actions/cache/save@v4
         with:
-          path: bots/${{ matrix.bot }}/seen.json
+          path: |
+            bots/${{ matrix.bot }}/seen.json
+            bots/${{ matrix.bot }}/x_compteur.json
           key: seen-${{ matrix.bot }}-${{ github.run_id }}-${{ github.run_attempt }}
 
   relais:
