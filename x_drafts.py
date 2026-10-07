@@ -104,6 +104,99 @@ def nettoyer(message_html):
     return re.sub(r"\n{3,}", "\n\n", t).strip()
 
 
+# ---------- Modèle unique des tweets : « EMOJI TYPE | Sujet », contenu, hashtags + signature ----------
+SIGLES = {"NFP", "ADP", "ISM", "PMI", "CPI", "PCE", "PPI", "PIB", "GDP", "BCE", "BOE", "BOJ", "BNS", "RBA", "RBNZ",
+          "FED", "FOMC", "US", "USA", "UE", "EU", "ZEW", "IFO", "JOLTS", "API", "EIA", "OPEP", "OPEC", "IPC",
+          "HICP", "IPCH", "S&P", "CFTC", "BTC", "ETH", "SOL", "XRP", "BNB", "ATH", "ETF", "IA", "PBOC", "BPC"}
+REGIONS = {"us": "États-Unis", "eur": "Europe", "asia": "Asie"}
+CRYPTOS_NOMS = {"BTC": "Bitcoin", "ETH": "Ethereum", "SOL": "Solana", "XRP": "XRP", "BNB": "BNB"}
+EMOJI_RE = re.compile(r"^((?:[\U0001F1E6-\U0001F1FF]{2})|[\U0001F300-\U0001FAFF☀-➿]️?)\s*")
+
+
+def casse(texte):
+    """'EMPLOIS NON AGRICOLES (NFP)' -> 'Emplois non agricoles (NFP)' (sigles et parenthèses gardés)."""
+    mots, dans_paren = [], False
+    for m in texte.split(" "):
+        if m.startswith("("):
+            dans_paren = True
+        brut = re.sub(r"[^\w&]", "", m).upper()
+        garder = dans_paren or brut in SIGLES or re.fullmatch(r"[\d.,/%]+\w{0,2}", brut or "x") is not None
+        mots.append(m if garder else m.lower())
+        if m.endswith(")"):
+            dans_paren = False
+    t = " ".join(mots)
+    return t[:1].upper() + t[1:]
+
+
+def titre_mots(texte):
+    """'IRAN · ORMUZ' -> 'Iran · Ormuz'."""
+    return " ".join(m if re.sub(r"[^\w&]", "", m).upper() in SIGLES else m[:1].upper() + m[1:].lower()
+                    for m in texte.split(" "))
+
+
+def sans_emoji(ligne):
+    while True:
+        m = EMOJI_RE.match(ligne)
+        if not m:
+            return ligne.strip()
+        ligne = ligne[m.end():]
+
+
+def structurer(message_html, source=""):
+    """Renvoie (en-tête, liste de blocs de contenu) selon le type d'annonce."""
+    texte = nettoyer(message_html)
+    lignes = texte.split("\n")
+    premiere = lignes[0].strip()
+    reste = "\n".join(lignes[1:]).strip()
+    blocs = [b.strip() for b in re.split(r"\n\s*\n", reste) if b.strip()]
+    if not blocs and len(reste) == 0:
+        blocs = []
+    crypto = source.lower().startswith("crypto")
+
+    if crypto:  # bot Crypto Alerts
+        m = re.search(r"ALERTE\s+(\w+)", premiere)
+        a = re.search(r"NOUVEL ATH\s+(\w+)", premiere)
+        if a:
+            sujet = CRYPTOS_NOMS.get(a.group(1), a.group(1))
+        elif m:
+            sujet = CRYPTOS_NOMS.get(m.group(1), titre_mots(m.group(1)))
+        elif "RÉSUMÉ" in premiere.upper():
+            date = premiere.split("·", 1)[1].strip() if "·" in premiere else ""
+            sujet = "Résumé du matin" + (f" · {date}" if date else "")
+        else:
+            sujet = "Marché crypto"
+        return f"🪙 CRYPTO | {sujet}", blocs or [sans_emoji(premiere)]
+
+    m = re.match(r"^🚨\s*ALERTE\s+(.+?)\s*🚨$", premiere)
+    if m:  # alerte géopolitique
+        return f"🚨 ALERTE | {titre_mots(m.group(1))}", ["\n".join(blocs)] if blocs else []
+
+    corps_premiere = sans_emoji(premiere)
+    emoji_tag = ""
+    m = re.match(r"^🔴\s*((?:[\U0001F1E6-\U0001F1FF]{2})|[\U0001F300-\U0001FAFF]️?)", premiere)
+    if m:
+        emoji_tag = m.group(1)
+
+    if "Publié :" in texte:  # donnée chiffrée
+        return f"{emoji_tag or '📊'} MACRO | {casse(corps_premiere)}", ["\n".join(blocs)]
+
+    if corps_premiere.endswith(":") and blocs:  # discours ou série de déclarations
+        nom = corps_premiere[:-1].strip()
+        if re.search(r"minutes|procès-verbal|compte rendu", nom, re.I):
+            return f"🏦 MACRO | {nom}", blocs
+        cites = []
+        for b in blocs:
+            puce = b.startswith("•")
+            phrase = re.sub(r"^[•\-]\s*", "", b).strip()
+            cites.append(("• " if puce else "") + f"« {phrase} »")
+        return f"🎙 DISCOURS | {nom}", cites
+
+    region = REGIONS.get(source.split()[0].lower(), "Marchés") if source else "Marchés"
+    if blocs and corps_premiere.upper() == corps_premiere:  # annonce avec détails
+        return f"🔴 FLASH | {casse(corps_premiere)}", blocs
+    return f"🔴 FLASH | {region}", [corps_premiere] + blocs
+
+
 MAX_TWEETS = 4  # au-delà, le reste est laissé de côté (les points les plus récents passent en premier)
 
 
@@ -114,18 +207,13 @@ def pied_de(texte):
     return ("\n\n" + "\n".join(pied)) if pied else ""
 
 
-def tweets(message_html):
+def tweets(message_html, source=""):
     """Découpe l'annonce en tweets complets de 280 caractères maximum, sans couper une phrase.
 
     Une annonce courte = 1 tweet. Une longue série (ex. minutes de la Fed) = plusieurs tweets autonomes,
     chacun avec le titre, autant de points entiers que possible, les hashtags et la signature.
     """
-    corps = nettoyer(message_html)
-    blocs = [b.strip() for b in re.split(r"\n\s*\n", corps) if b.strip()]
-    if len(blocs) > 1 and poids(blocs[0]) <= 80:
-        titre, points = blocs[0], blocs[1:]
-    else:
-        titre, points = "", blocs
+    titre, points = structurer(message_html, source)
     sortie, courant = [], []
 
     def assembler(liste):
@@ -165,8 +253,8 @@ def couper_phrase(texte, maxi):
     return morceau
 
 
-def tweet(message_html):
-    return tweets(message_html)[0]
+def tweet(message_html, source=""):
+    return tweets(message_html, source)[0]
 
 
 def tg(methode, **params):
@@ -188,7 +276,7 @@ def brouillon(message_html, source="", silencieux=False):
     if not (TOKEN and CHAT_ID):
         return False
     try:
-        liste = tweets(message_html)
+        liste = tweets(message_html, source)
     except Exception as e:
         print("Brouillon X impossible :", e, flush=True)
         return False
