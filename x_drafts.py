@@ -141,7 +141,10 @@ def brouillon(message_html, source="", silencieux=False):
         lien = "https://x.com/intent/post?text=" + urllib.parse.quote(texte, safe="")
         entete = f"<b>📝 Brouillon X</b>{' · ' + html.escape(source) if source else ''} · {poids(texte)}/{LIMITE}"
         corps = f"{entete}\n\n<blockquote>{html.escape(texte)}</blockquote>"
-        bouton = json.dumps({"inline_keyboard": [[{"text": "Publier sur X", "url": lien}]]})
+        ligne = [{"text": "Publier sur X", "url": lien}]
+        if len(texte) <= 256:  # limite Telegram du bouton « copier »
+            ligne.insert(0, {"text": "Copier le tweet", "copy_text": {"text": texte}})
+        bouton = json.dumps({"inline_keyboard": [ligne]})
         for _ in range(3):
             r = tg("sendMessage", chat_id=CHAT_ID, text=corps, parse_mode="HTML",
                    disable_web_page_preview="true", reply_markup=bouton,
