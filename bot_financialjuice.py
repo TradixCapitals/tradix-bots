@@ -536,7 +536,7 @@ def is_group(label):
 
 
 def speech_icon(label):
-    return "\U0001F4E2" if is_group(label) else "\U0001F399"
+    return "" if is_group(label) else "\U0001F399"  # organisation : même format, sans icône
 
 
 def is_place(label):
@@ -774,7 +774,7 @@ def fmt(item, english=False):
                 f"<b><i>Publié : {a}</i></b>{vs_forecast(m.group(2), m.group(3))}\n"
                 f"<i>Prévu : {f} \u00B7 Précédent : {p}</i>\n{SEP}")
     sp = SPEAKER_RE.match(title)
-    if tag in ("\U0001F399", "\U0001F4E2") and sp:  # discours : nom souligné au-dessus, déclaration en dessous
+    if sp and speech_split(title):  # discours : nom souligné au-dessus, déclaration en dessous
         name, _, rest = sp.groups()
         return (f"{head}<b><u>{html.escape(name.strip())}</u></b>{when}\n\n"
                 f"<i>{html.escape(rest.strip())}</i>\n{SEP}")
@@ -785,15 +785,14 @@ def fmt_speech(group):
     """Plusieurs déclarations d'une même personne -> un seul message (nom en tête, une ligne par déclaration)."""
     name = html.escape(group[0][1])
     icon = speech_icon(group[0][4]) if len(group[0]) > 4 else "\U0001F399"
+    icon = f"{icon} " if icon else ""
     lines = [f"<i>{html.escape(g[2])}</i>" for g in group]
     if len(lines) > 1:
         lines = [f"\u2022 {l}" for l in lines]
     body = "\n\n".join(lines)
     if any(g[3] for g in group):  # au moins une déclaration importante : rond rouge + sonnerie
-        return f"\U0001F534 {icon} <b><u>{name}</u></b>\n\n{body}\n{SEP}"
-    if len(group) == 1 and icon == "\U0001F399":  # une seule déclaration normale : une ligne compacte
-        return f"\u25AB\uFE0F <i><u>{name}</u> : {html.escape(group[0][2])}</i>"
-    return f"\u25AB\uFE0F {icon} <u>{name}</u>\n\n{body}"
+        return f"\U0001F534 {icon}<b><u>{name}</u></b>\n\n{body}\n{SEP}"
+    return f"\u25AB\uFE0F {icon}<u>{name}</u>\n\n{body}"
 
 
 ALERTE_PATH = os.path.join(BOT_DIR, "alerte.txt")
@@ -806,8 +805,8 @@ def alert_label(text):
     for line in read_terms(ALERTE_PATH, ALERTE_DEFAUT, "Alertes spéciales (format le plus visible)",
                            "Format : mot1, mot2 = TITRE DE L'ALERTE. Une annonce qui contient un de ces mots passe en alerte."):
         words, _, label = line.rpartition("=")
-        terms = [w.strip() for w in words.split(",") if w.strip()]
-        if terms and label.strip() and has_term(terms, text):
+        groups = [[w.strip() for w in part.split(",") if w.strip()] for part in words.split("+")]  # 'A, B + C, D' : un mot de chaque groupe
+        if label.strip() and all(groups) and all(has_term(g, text) for g in groups):
             return label.strip()
     return ""
 

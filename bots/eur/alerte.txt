@@ -2,3 +2,4 @@
 # Format : mot1, mot2 = TITRE DE L'ALERTE. Une annonce qui contient un de ces mots passe en alerte.
 # Les lignes qui commencent par # sont ignorées. Modifie sans arrêter le bot.
 Iran, Iranian, Tehran, Hormuz, IRGC, Khamenei, Persian Gulf = IRAN · ORMUZ
+Russia, Russian, Ukraine, Ukrainian, Kyiv, Kiev, Moscow, Kremlin, Putin, Zelensky, Zelenskiy + massive strike, massive strikes, massive attack, ceasefire, truce, peace deal, peace talks, peace agreement, peace plan, Zaporizhzhia, nuclear, NATO, mobilization, mobilisation, escalation, invasion, Article 5 = RUSSIE · UKRAINE
