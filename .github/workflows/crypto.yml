@@ -1,0 +1,60 @@
+name: bots-crypto
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # filet de sécurité : relance la chaîne si elle s'est arrêtée
+  workflow_dispatch:
+
+concurrency:
+  group: tradix-crypto
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  run:
+    name: bot ${{ matrix.bot }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { bot: news,   secret: CRYPTO_NEWS,   script: bot.py }
+          - { bot: alerts, secret: CRYPTO_ALERTS, script: bot_alertes.py }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restaurer la mémoire
+        uses: actions/cache/restore@v4
+        with:
+          path: crypto/${{ matrix.bot }}/*.json
+          key: crypto-${{ matrix.bot }}-none
+          restore-keys: crypto-${{ matrix.bot }}-
+
+      - name: Lancer le bot (cycle de ~5 minutes)
+        env:
+          TELEGRAM_TOKEN: ${{ secrets[format('TELEGRAM_BOT_TOKEN_{0}', matrix.secret)] }}
+          CYCLE_SECONDS: 270
+        run: python3 crypto/${{ matrix.bot }}/${{ matrix.script }} --cycle
+
+      - name: Sauvegarder la mémoire
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: crypto/${{ matrix.bot }}/*.json
+          key: crypto-${{ matrix.bot }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+  relais:
+    name: relancer le cycle suivant
+    needs: run
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Relancer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run crypto.yml --ref main -R ${{ github.repository }}

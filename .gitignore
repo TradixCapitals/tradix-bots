@@ -2,3 +2,7 @@ config.env
 seen.json
 feed_cache.xml
 __pycache__/
+
+.telegram_token
+.DS_Store
+crypto/*/*.json
