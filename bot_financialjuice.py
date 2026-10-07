@@ -776,7 +776,7 @@ def fmt(item, english=False):
     sp = SPEAKER_RE.match(title)
     if sp and speech_split(title):  # discours : nom souligné au-dessus, déclaration en dessous
         name, _, rest = sp.groups()
-        return (f"{head}<b><u>{html.escape(name.strip())}</u></b>{when}\n\n"
+        return (f"{head}<b><u>{html.escape(name.strip())}</u> :</b>{when}\n\n"
                 f"<i>{html.escape(rest.strip())}</i>\n{SEP}")
     return f"{head}{style(title, 'bi')}{when}\n{SEP}"  # autre annonce importante : gras italique
 
@@ -791,8 +791,8 @@ def fmt_speech(group):
         lines = [f"\u2022 {l}" for l in lines]
     body = "\n\n".join(lines)
     if any(g[3] for g in group):  # au moins une déclaration importante : rond rouge + sonnerie
-        return f"\U0001F534 {icon}<b><u>{name}</u></b>\n\n{body}\n{SEP}"
-    return f"\u25AB\uFE0F {icon}<u>{name}</u>\n\n{body}"
+        return f"\U0001F534 {icon}<b><u>{name}</u> :</b>\n\n{body}\n{SEP}"
+    return f"\u25AB\uFE0F {icon}<u>{name}</u> :\n\n{body}"
 
 
 ALERTE_PATH = os.path.join(BOT_DIR, "alerte.txt")
