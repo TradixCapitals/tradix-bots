@@ -7,3 +7,6 @@ Brouillons X (Twitter) : chaque annonce importante (US, EUR, Asia) et chaque gro
 prêt à publier, envoyé dans un canal Telegram privé avec un bouton « Publier sur X ». Code : x_drafts.py.
 Hashtags et signature des tweets : dossier x/. Secrets nécessaires : X_DRAFTS_TOKEN et X_DRAFTS_CHAT_ID.
 Test : Actions > test-brouillons-x > Run workflow (5 brouillons, sans notification).
+
+Agenda X : x_agenda.py envoie en brouillon l'agenda des annonces US importantes du jour (lundi-vendredi, 7 h)
+et les grands rendez-vous de la semaine (dimanche soir). Source : calendrier ForexFactory. Workflow : agenda-x.

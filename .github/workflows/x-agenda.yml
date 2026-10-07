@@ -1,0 +1,30 @@
+name: agenda-x
+
+# Brouillons X de l'agenda économique (canal privé « Tradix - Brouillons X ») :
+#  - agenda du jour : du lundi au vendredi vers 7 h (heure de Paris, 6 h en hiver)
+#  - agenda de la semaine : le dimanche vers 19 h (18 h en hiver)
+on:
+  schedule:
+    - cron: "52 4 * * 1-5"
+    - cron: "52 16 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  agenda:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Envoyer l'agenda en brouillon X
+        env:
+          X_DRAFTS_TOKEN: ${{ secrets.X_DRAFTS_TOKEN }}
+          X_DRAFTS_CHAT_ID: ${{ secrets.X_DRAFTS_CHAT_ID }}
+        run: |
+          if [ "${{ github.event.schedule }}" = "52 16 * * 0" ]; then
+            python3 x_agenda.py --semaine
+          else
+            python3 x_agenda.py --jour
+          fi
