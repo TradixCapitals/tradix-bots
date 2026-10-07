@@ -228,8 +228,10 @@ def envoyer_brouillon(texte, source, silencieux):
 TESTS = [
     ("US", "\U0001F534 \U0001F1FA\U0001F1F8 <b><u>EMPLOIS NON AGRICOLES (NFP)</u></b>\n\n<b><i>Publié : 254K</i></b> ▲\n"
            "<i>Prévu : 150K · Précédent : 159K</i>\n" + "─" * 14),
-    ("US", "\U0001F534 <b><u>Powell</u> :</b>\n\n<i>L'inflation reste trop élevée, nous resterons dépendants des données</i>\n"
-           + "─" * 14),
+    ("US", "\U0001F534 <b><u>Minutes du FOMC</u> :</b>\n\n"
+           "<i>• La plupart des participants ont jugé approprié de poursuivre l'assouplissement monétaire lors des prochaines réunions</i>\n\n"
+           "<i>• Plusieurs participants ont noté que les risques à la hausse sur l'inflation restaient élevés en raison des droits de douane</i>\n\n"
+           "<i>• Le marché du travail montre des signes de ralentissement progressif</i>\n" + "─" * 14),
     ("US", "\U0001F6A8 <b>ALERTE IRAN · ORMUZ</b> \U0001F6A8\n" + "━" * 14 +
            "\n<b><i>L'Iran affirme qu'il répondra à toute attaque contre ses installations pétrolières</i></b>\n" + "━" * 14),
     ("EUR", "\U0001F534 <b><u>Lagarde</u> :</b>\n\n<i>La BCE n'est pas pressée de baisser à nouveau ses taux</i>\n"
@@ -258,10 +260,11 @@ def cmd_chat_id():
 
 
 def cmd_test():
-    if not (TOKEN and CHAT_ID):
-        sys.exit("Il manque X_DRAFTS_TOKEN ou X_DRAFTS_CHAT_ID.")
+    global TOKEN, CHAT_ID
+    CHAT_ID = CHAT_ID or "-1003875078448"  # canal « Tradix - Brouillons X »
+    TOKEN = TOKEN or getpass.getpass("Token du bot des brouillons (invisible, colle puis Entrée) : ").strip()
     n = sum(brouillon(m, f"{src} · TEST", silencieux=True) for src, m in TESTS)
-    print(f"{n}/{len(TESTS)} brouillons de test envoyés.")
+    print(f"{n}/{len(TESTS)} annonces de test envoyées en brouillons.")
     if n < len(TESTS):
         sys.exit(1)
 
