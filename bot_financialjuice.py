@@ -327,6 +327,8 @@ GROQ_PROMPT = (
     "'Strait of Hormuz' ou 'Hormuz' = 'détroit d'Ormuz' ; 'bpd' = 'b/j' ; 'Fed' reste 'Fed' ; 'Treasury yields' = 'rendements des Treasuries' ; "
     "'X: told ... Thinking about it' signifie que l'on a dit quelque chose à X et qu'il répond qu'il y réfléchit. "
     "'auction' (Treasuries, Bund, OAT...) = 'adjudication' ; 'stops at' / 'clears at' = 'rendement de' ; "
+    "'squeeze' (sur un marché, des obligations) = 'pression' / 'tensions' (jamais 'pressurage') ; "
+    "'focus minds on X' = 'pousser à X' / 'inciter à X' ; "
     "'US' / 'U.S.' = 'États-Unis' ou 'américain' (jamais 'US' en français) ; 'US-Iran talks' = 'pourparlers entre les États-Unis et l'Iran' ; "
     "utilise des traits d'union normaux. "
     "Un titre qui commence par un pays suivi de deux-points garde cette forme : "
@@ -428,13 +430,19 @@ def translate_text(text):
     gen = re.search(r"\s*[-\u2010-\u2015\u2212(]\s*(?:interview(?:ed)?|anonymous|unnamed|an?)?[\s:,/-]*(?:with\s+|w/\s*)?(?:an?\s+)?(sources?)"
                     r"(?:\s+(?:interview|say|says|said|familiar.*))?\s*\)?\s*\.?\s*$", text, re.I)
     if gen and gen.start() > 8:  # '... - interview source' / '- sources' -> '– selon une source' / '– selon des sources'
-        return f"{translate_text(text[:gen.start()])} \u2013 selon {'des sources' if gen.group(1).lower() == 'sources' else 'une source'}"
+        inner = translate_text(text[:gen.start()])
+        who = 'des sources' if gen.group(1).lower() == 'sources' else 'une source'
+        dbl = re.search(r"\s+\u2013\s+(?:selon\s+)?([^\u2013]{2,40})$", inner)
+        if dbl and not dbl.group(1).lower().startswith(("une source", "des sources")):  # '– selon Ubide de Citadel – selon une source'
+            return f"{inner[:dbl.start()]} \u2013 {dbl.group(1).strip()}, selon {who}"   # -> '– Ubide de Citadel, selon une source'
+        return f"{inner} \u2013 selon {who}"
     rep = re.search(r",\s*(?:the\s+)?([A-Z][\w.&'\u2019]*(?:\s+[A-Z][\w.&'\u2019]*){0,3})\s+(?:reports?|reported|says|said|writes|wrote)\s*\.?\s*$", text)
     if rep and rep.start() > 8:  # '..., Kyodo reports' -> '... – Kyodo'
         return f"{translate_text(text[:rep.start()])} \u2013 {rep.group(1).strip()}"
     src = SOURCE_RE.search(text)
     if src and src.start() > 8:  # '... - NewsNation reporter on X' : source retirée avant traduction, remise à la fin
-        return f"{translate_text(text[:src.start()])} \u2013 {src.group(1).strip()}"
+        who = re.sub(r"^(.+?)['\u2019]s\s+(.+)$", r"\2 de \1", src.group(1).strip())  # "Citadel's Ubide" -> 'Ubide de Citadel'
+        return f"{translate_text(text[:src.start()])} \u2013 {who}"
     if text in _cache:
         return _cache[text]
     for wait in (0, 3, 8):
@@ -443,6 +451,7 @@ def translate_text(text):
             try:
                 out = fn(text)
                 if out:
+                    out = re.sub(r"\b([Ll])e pressurage\b", r"\1a pression", out)
                     if name != "groq":  # corrections.txt : seulement pour la traduction Google (l'IA n'en a pas besoin)
                         out = fix_fr(out)
                         if GROQ_KEY:
@@ -515,14 +524,21 @@ NOT_PERSON = {"tankan", "survey", "poll", "data", "report", "reports", "analysts
               "official data", "statistics", "census", "ism", "pmi", "cpi", "gdp", "eia", "api", "opec", "imf data"}
 
 
+NOT_PERSON_WORDS = {"houthi", "houthis", "hezbollah", "hamas", "irgc", "idf", "taliban", "militants", "militia", "rebels",
+                    "military", "army", "navy", "forces", "troops", "air force", "coalition", "jihad", "isis", "wagner"}
+
+
 def is_place(label):
     """'Japan', 'South Korea', 'Tankan'... ne sont pas des personnes qui parlent : pas de format discours."""
     l = label.strip().lower()
     if l in NOT_PERSON:
         return True
-    places = {t.lower() for t in read_terms(FORT_PATH, STRONG_US, "", "") + read_terms(EXCLURE_PATH, NON_US, "", "")
-              if " " in t or t[:1].isupper() and not t.isupper()}
-    return l in places or l in {"us", "u.s.", "uk", "eu", "japan", "china", "india", "australia", "korea", "south korea",
+    if any(w.strip("'’s") in NOT_PERSON_WORDS or w in NOT_PERSON_WORDS for w in re.split(r"[\s\-]+", l)):
+        return True  # groupe armé / armée qui revendique un fait : annonce, pas discours
+    return l in {"united states", "euro zone", "euro area", "europe", "asia", "britain", "netherlands", "belgium", "austria",
+                 "portugal", "greece", "ireland", "finland", "sweden", "norway", "poland", "hungary", "brazil", "mexico",
+                 "turkey", "indonesia", "thailand", "philippines", "malaysia", "vietnam", "lebanon", "yemen", "syria",
+                 "iraq", "qatar", "uae", "egypt", "venezuela", "argentina", "chile", "pakistan", "north korea", "caixin"} or l in {"us", "u.s.", "uk", "eu", "japan", "china", "india", "australia", "korea", "south korea",
                                 "new zealand", "taiwan", "hong kong", "singapore", "germany", "france", "italy", "spain",
                                 "eurozone", "canada", "switzerland", "russia", "ukraine", "iran", "israel", "saudi arabia"}
 
