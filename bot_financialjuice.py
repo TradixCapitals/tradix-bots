@@ -529,13 +529,21 @@ NOT_PERSON_WORDS = {"houthi", "houthis", "hezbollah", "hamas", "irgc", "idf", "t
                     "ministry", "defence", "defense", "pentagon", "kremlin", "mod"}
 
 
+def is_group(label):
+    """Groupe armé, armée, ministère, Kremlin... : communiqué (📢), pas une personne qui parle (🎙)."""
+    l = label.strip().lower()
+    return any(w.strip("'\u2019s") in NOT_PERSON_WORDS or w in NOT_PERSON_WORDS for w in re.split(r"[\s\-]+", l))
+
+
+def speech_icon(label):
+    return "\U0001F4E2" if is_group(label) else "\U0001F399"
+
+
 def is_place(label):
     """'Japan', 'South Korea', 'Tankan'... ne sont pas des personnes qui parlent : pas de format discours."""
     l = label.strip().lower()
     if l in NOT_PERSON:
         return True
-    if any(w.strip("'’s") in NOT_PERSON_WORDS or w in NOT_PERSON_WORDS for w in re.split(r"[\s\-]+", l)):
-        return True  # groupe armé / armée qui revendique un fait : annonce, pas discours
     return l in {"united states", "euro zone", "euro area", "europe", "asia", "britain", "netherlands", "belgium", "austria",
                  "portugal", "greece", "ireland", "finland", "sweden", "norway", "poland", "hungary", "brazil", "mexico",
                  "turkey", "indonesia", "thailand", "philippines", "malaysia", "vietnam", "lebanon", "yemen", "syria",
@@ -644,7 +652,7 @@ def tag_for(original, title):
         return "\U0001F4CA"
     m = SPEAKER_RE.match(title)
     if m and len(m.group(1).split()) <= 5 and m.group(1).strip().lower() not in NOT_SPEAKER and not is_place(m.group(1)):
-        return "\U0001F399"  # micro : discours
+        return speech_icon(m.group(1))  # micro : discours / haut-parleur : communiqué
     for words, emoji in labels("autre"):
         if has_term(words, original):
             return emoji
@@ -766,7 +774,7 @@ def fmt(item, english=False):
                 f"<b><i>Publié : {a}</i></b>{vs_forecast(m.group(2), m.group(3))}\n"
                 f"<i>Prévu : {f} \u00B7 Précédent : {p}</i>\n{SEP}")
     sp = SPEAKER_RE.match(title)
-    if tag == "\U0001F399" and sp:  # discours : nom souligné au-dessus, déclaration en dessous
+    if tag in ("\U0001F399", "\U0001F4E2") and sp:  # discours : nom souligné au-dessus, déclaration en dessous
         name, _, rest = sp.groups()
         return (f"{head}<b><u>{html.escape(name.strip())}</u></b>{when}\n\n"
                 f"<i>{html.escape(rest.strip())}</i>\n{SEP}")
@@ -776,15 +784,16 @@ def fmt(item, english=False):
 def fmt_speech(group):
     """Plusieurs déclarations d'une même personne -> un seul message (nom en tête, une ligne par déclaration)."""
     name = html.escape(group[0][1])
+    icon = speech_icon(group[0][4]) if len(group[0]) > 4 else "\U0001F399"
     lines = [f"<i>{html.escape(g[2])}</i>" for g in group]
     if len(lines) > 1:
         lines = [f"\u2022 {l}" for l in lines]
     body = "\n\n".join(lines)
     if any(g[3] for g in group):  # au moins une déclaration importante : rond rouge + sonnerie
-        return f"\U0001F534 \U0001F399 <b><u>{name}</u></b>\n\n{body}\n{SEP}"
-    if len(group) == 1:  # une seule déclaration normale : une ligne compacte
+        return f"\U0001F534 {icon} <b><u>{name}</u></b>\n\n{body}\n{SEP}"
+    if len(group) == 1 and icon == "\U0001F399":  # une seule déclaration normale : une ligne compacte
         return f"\u25AB\uFE0F <i><u>{name}</u> : {html.escape(group[0][2])}</i>"
-    return f"\u25AB\uFE0F \U0001F399 <u>{name}</u>\n\n{body}"
+    return f"\u25AB\uFE0F {icon} <u>{name}</u>\n\n{body}"
 
 
 ALERTE_PATH = os.path.join(BOT_DIR, "alerte.txt")
