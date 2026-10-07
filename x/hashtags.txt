@@ -1,0 +1,14 @@
+# Hashtags ajoutés aux brouillons X (2 maximum par tweet, le premier trouvé gagne)
+# Format : mot1, mot2 = #Hashtag  (mots en français ou en anglais)
+# Les lignes qui commencent par # sont ignorées.
+Fed, FOMC, Powell, Réserve fédérale = #Fed
+or, gold, XAU = #Or
+NFP, emplois non agricoles, payrolls = #NFP
+CPI, PCE, inflation = #Inflation
+BCE, Lagarde = #BCE
+Iran, Ormuz, Israël = #Géopolitique
+BTC, Bitcoin = #Bitcoin
+ETH, Ethereum = #Ethereum
+SOL, Solana = #Solana
+XRP = #XRP
+BNB = #BNB

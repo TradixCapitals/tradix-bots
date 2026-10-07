@@ -2,6 +2,9 @@ import os, sys, json, time, math, getpass, re, html, urllib.request, urllib.pars
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+import x_drafts  # brouillons de tweets pour X (canal privé), voir x_drafts.py
+
 CHAT_ID = "-1004338002022"
 DOSSIER = os.path.dirname(os.path.abspath(__file__))
 FICHIER_ETAT = os.path.join(DOSSIER, "etat.json")
@@ -418,7 +421,8 @@ def passage(token, mode_test=False):
     if not alertes and not premier:
         print(time.strftime("%H:%M:%S"), "— rien à signaler")
     for texte in alertes:
-        envoyer(token, texte)
+        if envoyer(token, texte) and not mode_test and not texte.startswith("▫️"):
+            x_drafts.brouillon(texte, "Crypto")  # grosses alertes et résumé du matin -> brouillon X
     sauver_etat(etat)
 
 if __name__ == "__main__":

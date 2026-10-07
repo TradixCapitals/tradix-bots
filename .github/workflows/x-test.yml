@@ -1,0 +1,21 @@
+name: test-brouillons-x
+
+# Lancement manuel : Actions > test-brouillons-x > Run workflow
+# Envoie 5 brouillons de test (sans notification) dans le canal privé des brouillons X.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Envoyer 5 brouillons de test
+        env:
+          X_DRAFTS_TOKEN: ${{ secrets.X_DRAFTS_TOKEN }}
+          X_DRAFTS_CHAT_ID: ${{ secrets.X_DRAFTS_CHAT_ID }}
+        run: python3 x_drafts.py --test

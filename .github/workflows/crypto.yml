@@ -38,6 +38,8 @@ jobs:
         env:
           TELEGRAM_TOKEN: ${{ secrets[format('TELEGRAM_BOT_TOKEN_{0}', matrix.secret)] }}
           CYCLE_SECONDS: 270
+          X_DRAFTS_TOKEN: ${{ secrets.X_DRAFTS_TOKEN }}
+          X_DRAFTS_CHAT_ID: ${{ secrets.X_DRAFTS_CHAT_ID }}
         run: python3 crypto/${{ matrix.bot }}/${{ matrix.script }} --cycle
 
       - name: Sauvegarder la mémoire

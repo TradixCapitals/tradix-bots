@@ -23,6 +23,8 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from email.utils import parsedate_to_datetime
 
+import x_drafts  # brouillons de tweets pour X (canal privé), voir x_drafts.py
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(HERE, "config.env")
 SEEN_PATH = os.path.join(HERE, "seen.json")
@@ -55,6 +57,7 @@ FEED_URL = CFG.get("FEED_URL", "https://www.financialjuice.com/feed.ashx?xy=rss"
 TG_API = CFG.get("TG_API", "https://api.telegram.org")
 TOKEN = CFG.get("TELEGRAM_BOT_TOKEN", "")
 CHAT_ID = CFG.get("TELEGRAM_CHAT_ID", "")
+X_SOURCE = CFG.get("X_SOURCE", "")  # nom du marché affiché sur les brouillons X (US, EUR, Asia)
 
 
 def log(msg):
@@ -936,6 +939,8 @@ def run():
                         imp = any(g[3] for g in group)
                         msg, alerte = alertify(fmt_speech(group), " ".join(g[0]["title"] for g in group))
                         if send(msg, silent=SILENCIEUX and not imp and not alerte):
+                            if imp or alerte:
+                                x_drafts.brouillon(msg, X_SOURCE)
                             seen.extend(g[0]["id"] for g in group)
                             log(f"Envoyé : {group[0][1]} ({len(group)} déclaration(s))")
                         else:
@@ -974,6 +979,8 @@ def run():
                         text = fmt(it, english=True)  # dernier recours : le titre en anglais
                     text, alerte = alertify(text, full_text(it))
                     if send(text, silent=SILENCIEUX and not is_important(full_text(it)) and not alerte):
+                        if alerte or is_important(full_text(it)):
+                            x_drafts.brouillon(text, X_SOURCE)
                         seen.append(it["id"])
                         log("Envoyé : " + it["title"][:80])
                     else:

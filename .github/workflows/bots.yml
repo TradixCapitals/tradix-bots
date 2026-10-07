@@ -22,9 +22,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { bot: us,   secret: US,   delay: 0,  cycle: 285 }
-          - { bot: eur,  secret: EUR,  delay: 30, cycle: 255 }
-          - { bot: asia, secret: ASIA, delay: 60, cycle: 225 }
+          - { bot: us,   secret: US,   delay: 0,  cycle: 285, x: US }
+          - { bot: eur,  secret: EUR,  delay: 30, cycle: 255, x: EUR }
+          - { bot: asia, secret: ASIA, delay: 60, cycle: 225, x: Asia }
     steps:
       - uses: actions/checkout@v4
 
@@ -42,6 +42,9 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets[format('TELEGRAM_CHAT_ID_{0}', matrix.secret)] }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           CYCLE_SECONDS: ${{ matrix.cycle }}
+          X_SOURCE: ${{ matrix.x }}
+          X_DRAFTS_TOKEN: ${{ secrets.X_DRAFTS_TOKEN }}
+          X_DRAFTS_CHAT_ID: ${{ secrets.X_DRAFTS_CHAT_ID }}
         run: |
           sleep ${{ matrix.delay }}
           python3 bot_financialjuice.py
