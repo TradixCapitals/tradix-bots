@@ -88,3 +88,18 @@ Kremlin
 Putin
 Zelensky
 Zelenskiy
+# Patrons et entreprises tech supplémentaires
+Bezos
+Blue Origin
+SpaceX
+Zuckerberg
+Altman
+Jensen Huang
+Tim Cook
+Nadella
+Pichai
+Dell
+IBM
+Salesforce
+Uber
+Coinbase
