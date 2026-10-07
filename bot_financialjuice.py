@@ -587,8 +587,30 @@ def to_french(title):
             a, f, p = (comma(g) for g in m.groups())
             out.append(f"Publié {a} (prévu {f}, précédent {p})")
         elif seg.strip():
-            out.append(custom_title(seg) or comma(translate_text(seg)))
+            out.append(custom_title(seg) or period_title(seg))
     return " ".join(out)
+
+
+PERIODS = [(r"QoQ\s+Annuali[sz]ed", "sur un trimestre, annualisé"), (r"MoM|M/M", "sur un mois"),
+           (r"YoY|Y/Y", "sur un an"), (r"QoQ|Q/Q", "sur un trimestre"), (r"WoW|W/W", "sur une semaine")]
+
+
+def period_title(seg):
+    """'Industrial Production MoM' / 'YoY SA' -> titre traduit + '(sur un mois)' / '(sur un an, CVS)' : toujours le même format."""
+    found, rest = [], seg
+    for pat, fr in PERIODS:
+        rest, n = re.subn(r"(?<![\w/])(?:" + pat + r")(?![\w/])", " ", rest)
+        if n:
+            found.append(fr)
+            break
+    if not found:
+        return comma(translate_text(seg))
+    rest, sa = re.subn(r"(?<!\w)(?:SA|s\.a\.)(?!\w)", " ", rest)
+    rest, nsa = re.subn(r"(?<!\w)(?:NSA|WDA|NSA/WDA)(?!\w)", " ", rest)
+    rest = re.sub(r"\s{2,}", " ", rest).strip(" ,:-")
+    tr = comma(translate_text(rest)).rstrip(" ,:") if rest else ""
+    extra = ", CVS" if sa else ""
+    return f"{tr} ({found[0]}{extra})".strip()
 
 
 def split_subject(text):
