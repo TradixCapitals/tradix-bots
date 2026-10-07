@@ -609,8 +609,7 @@ def period_title(seg):
     rest, nsa = re.subn(r"(?<!\w)(?:NSA|WDA|NSA/WDA)(?!\w)", " ", rest)
     rest = re.sub(r"\s{2,}", " ", rest).strip(" ,:-")
     tr = comma(translate_text(rest)).rstrip(" ,:") if rest else ""
-    extra = ", CVS" if sa else ""
-    return f"{tr} ({found[0]}{extra})".strip()
+    return f"{tr} ({found[0]})".strip()  # 'SA' / 'NSA' retirés : jargon inutile pour le lecteur
 
 
 def split_subject(text):
