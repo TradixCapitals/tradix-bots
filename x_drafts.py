@@ -329,9 +329,18 @@ TESTS = [
 ]
 
 
+def token_local():
+    """Token gardé uniquement sur le Mac, dans ~/.tradix_x_token (jamais dans le dépôt)."""
+    try:
+        with open(os.path.expanduser("~/.tradix_x_token"), encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
 def cmd_chat_id():
     global TOKEN
-    TOKEN = TOKEN or getpass.getpass("Token du bot des brouillons (invisible, colle puis Entrée) : ").strip()
+    TOKEN = TOKEN or token_local() or getpass.getpass("Token du bot des brouillons (invisible, colle puis Entrée) : ").strip()
     r = tg("getUpdates", allowed_updates=json.dumps(["channel_post", "my_chat_member", "message"]))
     if not r.get("ok"):
         sys.exit("Erreur Telegram : " + str(r.get("description")))
@@ -350,7 +359,7 @@ def cmd_chat_id():
 def cmd_test():
     global TOKEN, CHAT_ID
     CHAT_ID = CHAT_ID or "-1003875078448"  # canal « Tradix - Brouillons X »
-    TOKEN = TOKEN or getpass.getpass("Token du bot des brouillons (invisible, colle puis Entrée) : ").strip()
+    TOKEN = TOKEN or token_local() or getpass.getpass("Token du bot des brouillons (invisible, colle puis Entrée) : ").strip()
     n = sum(brouillon(m, f"{src} · TEST", silencieux=True) for src, m in TESTS)
     print(f"{n}/{len(TESTS)} annonces de test envoyées en brouillons.")
     if n < len(TESTS):
