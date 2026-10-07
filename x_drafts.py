@@ -98,7 +98,7 @@ def hashtags(texte):
             tags.append(tag)
         if len(tags) == 2:
             break
-    return tags
+    return sorted(tags, key=lambda t: t == "#Or")  # le sujet d'abord, #Or en dernier
 
 
 def nettoyer(message_html):
