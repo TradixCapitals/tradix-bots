@@ -1,4 +1,4 @@
-# Phrases d'appel vers Telegram, ajoutées en bas d'environ 1 tweet sur 3 (une phrase différente à chaque fois).
+# Phrases d'appel vers Telegram, ajoutées en bas d'environ 1 tweet sur 2 (une phrase différente à chaque fois).
 # Une phrase par ligne. Ajoute, modifie ou supprime librement. Fichier vide = jamais de phrase.
 📲 En direct et gratuit sur Telegram : lien en bio
 🔔 Ne ratez plus une annonce : nos canaux Telegram sont en bio

@@ -54,7 +54,7 @@ SIGNATURES_DEFAUT = [
     "➡️ Le live complet sur Telegram, lien en bio",
     "Alertes en temps réel, en français et gratuites : lien en bio",
 ]
-FREQUENCE_SIGNATURE = 3  # une phrase d'appel environ 1 tweet sur 3, en changeant de phrase à chaque fois
+FREQUENCE_SIGNATURE = 2  # une phrase d'appel environ 1 tweet sur 2, en changeant de phrase à chaque fois
 
 
 def lire(nom, defaut):
