@@ -26,6 +26,7 @@ from email.utils import parsedate_to_datetime
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(HERE, "config.env")
 SEEN_PATH = os.path.join(HERE, "seen.json")
+GRACE = 20             # secondes d'attente avant d'envoyer une série de déclarations (pour regrouper la suite)
 INTERVAL = 90          # secondes entre deux lectures du flux (le site limite les lectures trop fréquentes)
 MAX_WAIT = 900         # attente maximale après un refus 429 (15 min)
 KEEP = 500             # nombre d'identifiants mémorisés
@@ -815,7 +816,7 @@ def fmt_speech(group):
     name = html.escape(group[0][1])
     icon = speech_icon(group[0][4]) if len(group[0]) > 4 else "\U0001F399"
     icon = f"{icon} " if icon else ""
-    lines = [f"<i>{html.escape(g[2])}</i>" for g in group]
+    lines = [f"<i>{html.escape(g[2][:1].upper() + g[2][1:])}</i>" for g in group]
     if len(lines) > 1:
         lines = [f"\u2022 {l}" for l in lines]
     body = "\n\n".join(lines)
@@ -977,6 +978,21 @@ def run():
                         log("Envoyé : " + it["title"][:80])
                     else:
                         break  # on réessaiera au prochain tour, sans perdre l'ordre
+                if pending:  # la suite d'une série (ex. 2 annonces BCE à 15:00) arrive souvent quelques secondes après
+                    time.sleep(GRACE)
+                    try:
+                        known = set(seen) | {g[0]["id"] for g in pending}
+                        for it in [i for i in reversed(fetch_items()) if i["id"] not in known]:
+                            sp = None if it.get("details") else speech_split(it["title"])
+                            if not sp or sp[0] != pending[0][4]:
+                                break  # autre sujet : traité au prochain tour, dans l'ordre
+                            if is_ignored(full_text(it)) or not is_wanted(full_text(it)):
+                                break
+                            who, stmt = speech_fr(*sp)
+                            pending.append((it, who, stmt, is_important(it["title"]), sp[0]))
+                            new.append(it)
+                    except Exception as e:
+                        log(f"Relecture pour regroupement impossible ({type(e).__name__}) : envoi tel quel.")
                 flush()
                 if new:
                     save_seen(seen)
