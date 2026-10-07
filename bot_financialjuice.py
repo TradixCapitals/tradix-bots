@@ -23,7 +23,13 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from email.utils import parsedate_to_datetime
 
-import x_drafts  # brouillons de tweets pour X (canal privé), voir x_drafts.py
+try:
+    import x_drafts  # brouillons de tweets pour X (canal privé), voir x_drafts.py
+except ImportError:  # dossier local sans x_drafts.py (tests sur le Mac) : brouillons désactivés
+    class x_drafts:
+        @staticmethod
+        def brouillon(*a, **k):
+            return None
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(HERE, "config.env")
@@ -339,6 +345,7 @@ GROQ_PROMPT = (
 "'due to' / 'because of' + événement négatif (crises, guerre, chocs) = 'à cause de' (jamais 'grâce à') ; "
     "'focus minds on X' = 'pousser à X' / 'inciter à X' ; "
     "'WI' (adjudication) = 'when-issued' : 'stops at 5.3% vs. 5.317% WI' = 's'établit à 5,3 % contre 5,317 % attendu (when-issued)' (jamais 'IA') ; "
+    "'AI' = 'IA' (intelligence artificielle, jamais 'AL') ; 'hike' = 'hausse des taux' ; "
     "'US' / 'U.S.' = 'États-Unis' ou 'américain' (jamais 'US' en français) ; 'US-Iran talks' = 'pourparlers entre les États-Unis et l'Iran' ; "
     "utilise des traits d'union normaux. "
     "Un titre qui commence par un pays suivi de deux-points garde cette forme : "
@@ -352,6 +359,9 @@ GROQ_PROMPT = (
     "'Le vice-président américain Vance : Le processus décisionnel de l'Iran reste flou – selon une source'. "
     "Préfère toujours la formulation la plus courte et la plus percutante, comme un titre de dépêche. "
     "Traduis TOUTE la phrase : ne supprime jamais une information ni une partie du titre. "
+    "Écris toujours une vraie phrase avec un verbe conjugué, jamais un style télégraphique : "
+    "'NY Fed: Intervened in FX market on behalf of Treasury' -> 'Fed de New York : Elle est intervenue sur le marché des changes pour le compte du Trésor' ; "
+    "'ECB: Settled public sector bond purchases of EUR 1.65T' -> 'BCE : Elle a réglé des achats d'obligations du secteur public pour 1 650 Md€'. "
     "Pour un conflit entre deux pays, écris 'la guerre entre X et Y' (jamais d'adjectif du type 'russo-ukrainienne'). "
     "Traduis le SENS, jamais mot à mot : utilise les tournures qu'emploierait un journaliste financier français "
     "('finish it' / 'finish the job' = 'en finir', 'nearing an end' = 'touche à sa fin', 'going away' = 'va disparaître'). "
@@ -462,6 +472,7 @@ def translate_text(text):
                 out = fn(text)
                 if out:
                     out = re.sub(r"\b([Ll])e pressurage\b", r"\1a pression", out)
+                    out = re.sub(r"\b([Ll])'AL\b", r"\1'IA", out)
                     if name != "groq":  # corrections.txt : seulement pour la traduction Google (l'IA n'en a pas besoin)
                         out = fix_fr(out)
                         if GROQ_KEY:
@@ -576,15 +587,22 @@ def speaker_fr(label, done):
     return translate_text(label)
 
 
+SPEAKER_FIXED = {"fed minutes": "Minutes de la Fed", "fomc minutes": "Minutes de la Fed", "fomc": "FOMC",
+                 "ecb minutes": "Compte rendu de la BCE", "ecb accounts": "Compte rendu de la BCE", "ecb": "BCE",
+                 "boe minutes": "Compte rendu de la BoE", "boj minutes": "Compte rendu de la BoJ", "fed": "Fed",
+                 "rba minutes": "Compte rendu de la RBA", "imf": "FMI", "opec": "OPEP"}
+
+
 def speech_fr(label, stmt_en, done):
     """Traduit 'Intervenant: déclaration' EN ENTIER (le contexte aide la traduction), puis sépare après coup."""
     if not TRANSLATE:
         return label, stmt_en
     who_en = label if not done else label  # pour une institution ('Lane de la BCE'), le nom français est déjà prêt
     fr = translate_text(f"{who_en}: {stmt_en}")
+    fixed = SPEAKER_FIXED.get(label.strip().lower())  # même nom à chaque fois (sinon 'Fed' puis 'Minutes de la Fed')
     m = re.match(r"^\s*([^:]{1,80}?)\s*:\s*(.+)$", fr, re.S)
     if m:
-        who = label if done else m.group(1).strip()
+        who = fixed or (label if done else m.group(1).strip())
         who = who[:1].upper() + who[1:]
         stmt = m.group(2).strip()
         return who, comma(stmt[:1].upper() + stmt[1:])
@@ -815,7 +833,7 @@ def fmt(item, english=False):
     if sp and speech_split(title):  # discours : nom souligné au-dessus, déclaration en dessous
         name, _, rest = sp.groups()
         return (f"\U0001F534 <b><u>{html.escape(name.strip())}</u> :</b>{when}\n\n"
-                f"<i>{html.escape(rest.strip())}</i>\n{SEP}")
+                f"<i>{html.escape(rest.strip()[:1].upper() + rest.strip()[1:])}</i>\n{SEP}")
     return f"{head}{style(title, 'bi')}{when}\n{SEP}"  # autre annonce importante : gras italique
 
 
