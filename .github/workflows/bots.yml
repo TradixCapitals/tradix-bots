@@ -61,9 +61,14 @@ jobs:
     needs: run
     if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 4
     steps:
       - name: Relancer
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run bots.yml --ref main -R ${{ github.repository }}
+        run: |
+          for i in 1 2 3 4 5 6; do
+            gh workflow run bots.yml --ref main -R ${{ github.repository }} && exit 0
+            echo "Relance refusée par GitHub, nouvel essai dans 20 s"; sleep 20
+          done
+          exit 1
