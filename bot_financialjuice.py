@@ -525,7 +525,8 @@ NOT_PERSON = {"tankan", "survey", "poll", "data", "report", "reports", "analysts
 
 
 NOT_PERSON_WORDS = {"houthi", "houthis", "hezbollah", "hamas", "irgc", "idf", "taliban", "militants", "militia", "rebels",
-                    "military", "army", "navy", "forces", "troops", "air force", "coalition", "jihad", "isis", "wagner"}
+                    "military", "army", "navy", "forces", "troops", "air force", "coalition", "jihad", "isis", "wagner",
+                    "ministry", "defence", "defense", "pentagon", "kremlin", "mod"}
 
 
 def is_place(label):

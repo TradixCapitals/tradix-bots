@@ -15,3 +15,12 @@ LNG
 oil
 crude
 Middle East
+Russian
+Ukrainian
+Kyiv
+Kiev
+Moscow
+Kremlin
+Putin
+Zelensky
+Zelenskiy
