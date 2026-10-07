@@ -328,6 +328,7 @@ GROQ_PROMPT = (
     "'X: told ... Thinking about it' signifie que l'on a dit quelque chose à X et qu'il répond qu'il y réfléchit. "
     "'auction' (Treasuries, Bund, OAT...) = 'adjudication' ; 'stops at' / 'clears at' = 'rendement de' ; "
     "'squeeze' (sur un marché, des obligations) = 'pression' / 'tensions' (jamais 'pressurage') ; "
+"'due to' / 'because of' + événement négatif (crises, guerre, chocs) = 'à cause de' (jamais 'grâce à') ; "
     "'focus minds on X' = 'pousser à X' / 'inciter à X' ; "
     "'US' / 'U.S.' = 'États-Unis' ou 'américain' (jamais 'US' en français) ; 'US-Iran talks' = 'pourparlers entre les États-Unis et l'Iran' ; "
     "utilise des traits d'union normaux. "
@@ -496,6 +497,11 @@ INSTITUTIONS = {  # "ECB's Lane: ..." -> "Lane de la BCE : ..." (le nom de la pe
 INST_RE = re.compile(r"^(?P<inst>[A-Z][A-Za-z ]{1,15}?)['\u2019]s\s+(?P<name>[A-Za-z][A-Za-z\-'\u2019. ]{1,30}?)\s*:\s*(?P<rest>.+)$", re.S)
 
 
+TITLE_RE = re.compile(r"^(?:(?:Deputy|Vice|Acting|Former|Chief|Executive|First)\s+)*(?:Managing\s+Director|MD|President|Chair(?:man|woman)?|"
+                      r"Governor|Gov\.?|Economist|Director|Board\s+Member|Member|Secretary[\s-]General|Spokes(?:person|man|woman)|"
+                      r"CEO|Head|Official|Policymaker)\s+", re.I)
+
+
 def speaker_head(title):
     """'ECB's Lane: texte' -> ('Lane de la BCE', 'texte') ; None si ce n'est pas un discours d'une institution connue."""
     m = INST_RE.match(title.strip())
@@ -503,7 +509,9 @@ def speaker_head(title):
     if not inst or BLOCK_PARTS.search(title):
         return None
     name = m.group("name").strip()
-    name = " ".join(w[:1].upper() + w[1:] for w in name.split())  # 'sato' -> 'Sato'
+    name = TITLE_RE.sub("", name).strip() or name  # 'Managing Director Georgieva' -> 'Georgieva' (style court : 'Georgieva du FMI')
+    name = " ".join(w if i and w.lower() in ("de", "van", "von", "der", "da", "di", "del") else w[:1].upper() + w[1:]
+                    for i, w in enumerate(name.split()))  # 'sato' -> 'Sato'
     return f"{name} {inst}", m.group("rest").strip()
 
 
@@ -797,7 +805,7 @@ def fmt(item, english=False):
     sp = SPEAKER_RE.match(title)
     if sp and speech_split(title):  # discours : nom souligné au-dessus, déclaration en dessous
         name, _, rest = sp.groups()
-        return (f"{head}<b><u>{html.escape(name.strip())}</u> :</b>{when}\n\n"
+        return (f"\U0001F534 <b><u>{html.escape(name.strip())}</u> :</b>{when}\n\n"
                 f"<i>{html.escape(rest.strip())}</i>\n{SEP}")
     return f"{head}{style(title, 'bi')}{when}\n{SEP}"  # autre annonce importante : gras italique
 
@@ -812,8 +820,8 @@ def fmt_speech(group):
         lines = [f"\u2022 {l}" for l in lines]
     body = "\n\n".join(lines)
     if any(g[3] for g in group):  # au moins une déclaration importante : rond rouge + sonnerie
-        return f"\U0001F534 {icon}<b><u>{name}</u> :</b>\n\n{body}\n{SEP}"
-    return f"\u25AB\uFE0F {icon}<u>{name}</u> :\n\n{body}"
+        return f"\U0001F534 <b><u>{name}</u> :</b>\n\n{body}\n{SEP}"  # important : un seul emoji, le rond rouge
+    return f"{icon or chr(0x25AB) + chr(0xFE0F) + ' '}<u>{name}</u> :\n\n{body}"  # un seul emoji : 🎙 (personne) ou ▫️ (organisation)
 
 
 ALERTE_PATH = os.path.join(BOT_DIR, "alerte.txt")
