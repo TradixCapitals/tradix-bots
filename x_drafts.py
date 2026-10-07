@@ -104,19 +104,69 @@ def nettoyer(message_html):
     return re.sub(r"\n{3,}", "\n\n", t).strip()
 
 
-def tweet(message_html):
-    """Construit le tweet : texte de l'annonce + hashtags + signature, 280 caractères maximum."""
-    corps = nettoyer(message_html)
-    tags = hashtags(corps)
+MAX_TWEETS = 4  # au-delà, le reste est laissé de côté (les points les plus récents passent en premier)
+
+
+def pied_de(texte):
+    tags = hashtags(texte)
     sig = lire("signature.txt", [SIGNATURE_DEFAUT])
-    pied = []
-    if tags:
-        pied.append(" ".join(tags))
-    if sig:
-        pied.append(sig[0])
-    fin = ("\n\n" + "\n".join(pied)) if pied else ""
-    corps = couper(corps, LIMITE - poids(fin))
-    return corps + fin
+    pied = ([" ".join(tags)] if tags else []) + ([sig[0]] if sig else [])
+    return ("\n\n" + "\n".join(pied)) if pied else ""
+
+
+def tweets(message_html):
+    """Découpe l'annonce en tweets complets de 280 caractères maximum, sans couper une phrase.
+
+    Une annonce courte = 1 tweet. Une longue série (ex. minutes de la Fed) = plusieurs tweets autonomes,
+    chacun avec le titre, autant de points entiers que possible, les hashtags et la signature.
+    """
+    corps = nettoyer(message_html)
+    blocs = [b.strip() for b in re.split(r"\n\s*\n", corps) if b.strip()]
+    if len(blocs) > 1 and poids(blocs[0]) <= 80:
+        titre, points = blocs[0], blocs[1:]
+    else:
+        titre, points = "", blocs
+    sortie, courant = [], []
+
+    def assembler(liste):
+        if len(liste) == 1:  # un seul point : pas de puce
+            liste = [re.sub(r"^[\u2022\-]\s*", "", liste[0])]
+        return "\n\n".join(([titre] if titre else []) + liste)
+
+    def fermer():
+        if courant:
+            t = assembler(courant)
+            sortie.append(t + pied_de(t))
+            courant.clear()
+
+    for pt in points:
+        essai = assembler(courant + [pt])
+        if poids(essai + pied_de(essai)) <= LIMITE:
+            courant.append(pt)
+            continue
+        fermer()
+        seul = assembler([pt])
+        place = LIMITE - poids(pied_de(seul)) - (poids(titre) + 2 if titre else 0)
+        courant.append(pt if poids(seul + pied_de(seul)) <= LIMITE else couper_phrase(pt, place))
+    fermer()
+    return sortie[:MAX_TWEETS]
+
+
+def couper_phrase(texte, maxi):
+    """Raccourcit à la dernière phrase entière qui tient, sinon au dernier mot."""
+    if poids(texte) <= maxi:
+        return texte
+    morceau = texte
+    while poids(morceau) > maxi:
+        k = max(morceau.rfind(". ", 0, len(morceau) - 1), morceau.rfind("; ", 0, len(morceau) - 1))
+        if k <= 0:
+            return couper(texte, maxi)
+        morceau = morceau[:k + 1]
+    return morceau
+
+
+def tweet(message_html):
+    return tweets(message_html)[0]
 
 
 def tg(methode, **params):
@@ -138,7 +188,19 @@ def brouillon(message_html, source="", silencieux=False):
     if not (TOKEN and CHAT_ID):
         return False
     try:
-        texte = tweet(message_html)
+        liste = tweets(message_html)
+    except Exception as e:
+        print("Brouillon X impossible :", e, flush=True)
+        return False
+    ok = True
+    for n, texte in enumerate(liste, 1):
+        src = source + (f" · {n}/{len(liste)}" if len(liste) > 1 else "")
+        ok = envoyer_brouillon(texte, src, silencieux) and ok
+    return ok
+
+
+def envoyer_brouillon(texte, source, silencieux):
+    try:
         # Page relais (GitHub Pages) qui ouvre l'app X avec le texte ; le texte reste après « # », jamais envoyé au serveur
         lien = X_PAGE + "#" + urllib.parse.quote(texte, safe="")
         entete = f"<b>📝 Brouillon X</b>{' · ' + html.escape(source) if source else ''} · {poids(texte)}/{LIMITE}"
