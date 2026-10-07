@@ -8,6 +8,7 @@ Usage :
     python3 x_agenda.py --jour      agenda des annonces US importantes du jour
     python3 x_agenda.py --semaine   grands rendez-vous de la semaine
     python3 x_agenda.py --test      les deux, sans notification (pour vérifier le rendu)
+    python3 x_agenda.py --demo      faux agenda (semaine fictive), sans notification
 """
 import json
 import os
@@ -222,8 +223,41 @@ def envoyer(bloc, source, silencieux, phrase):
     return x_drafts.envoyer_brouillon(composer(lignes), source, silencieux)
 
 
+# Faux calendrier pour --demo (semaine fictive du lundi 12 octobre 2026)
+DEMO = [
+    ("ISM Services PMI", "USD", "2026-10-12T10:00:00-04:00", "High", "51.2"),
+    ("Retail Sales m/m", "USD", "2026-10-13T08:30:00-04:00", "High", "0.4%"),
+    ("JOLTS Job Openings", "USD", "2026-10-13T10:00:00-04:00", "High", "7.2M"),
+    ("Fed Chair Powell Speaks", "USD", "2026-10-13T13:00:00-04:00", "High", ""),
+    ("Unemployment Claims", "USD", "2026-10-15T08:30:00-04:00", "High", "225K"),
+    ("Core CPI m/m", "USD", "2026-10-15T08:30:00-04:00", "High", "0.3%"),
+    ("CPI y/y", "USD", "2026-10-15T08:30:00-04:00", "High", "2.9%"),
+    ("FOMC Member Waller Speaks", "USD", "2026-10-15T11:00:00-04:00", "Medium", ""),
+    ("Main Refinancing Rate", "EUR", "2026-10-15T08:15:00-04:00", "High", "2.15%"),
+    ("FOMC Meeting Minutes", "USD", "2026-10-14T14:00:00-04:00", "High", ""),
+    ("Non-Farm Employment Change", "USD", "2026-10-16T08:30:00-04:00", "High", "150K"),
+    ("Unemployment Rate", "USD", "2026-10-16T08:30:00-04:00", "High", "4.3%"),
+    ("Prelim UoM Consumer Sentiment", "USD", "2026-10-16T10:00:00-04:00", "High", "55.1"),
+]
+
+
+def demo():
+    x_drafts.CHAT_ID = x_drafts.CHAT_ID or "-1003875078448"
+    x_drafts.TOKEN = x_drafts.TOKEN or x_drafts.token_local()
+    evts = [{"title": t, "country": c, "date": d, "impact": i, "forecast": f} for t, c, d, i, f in DEMO]
+    for e in evts:
+        e["quand"] = datetime.fromisoformat(e["date"]).astimezone(PARIS)
+    jour = datetime(2026, 10, 15).date()
+    ok = envoyer(agenda_jour(evts, jour), "Agenda du jour · DÉMO", True, phrase_du_jour(jour))
+    ok &= envoyer(agenda_semaine(evts, jour - timedelta(days=3)), "Agenda de la semaine · DÉMO", True,
+                  phrase_du_jour(jour + timedelta(days=1)))
+    print("Faux agenda envoyé en brouillon." if ok else "Échec de l'envoi (voir ci-dessus).")
+
+
 def main():
     arg = sys.argv[1] if len(sys.argv) > 1 else ""
+    if arg == "--demo":
+        return demo()
     if arg not in ("--jour", "--semaine", "--test"):
         print(__doc__)
         return
