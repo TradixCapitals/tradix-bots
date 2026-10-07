@@ -46,7 +46,7 @@ HASHTAGS_DEFAUT = [
     "XRP = #XRP",
     "BNB = #BNB",
 ]
-SIGNATURE_DEFAUT = "⚡ Le live des marchés en français : lien en bio"
+SIGNATURE_DEFAUT = ""  # pas de signature par défaut (modifiable dans x/signature.txt)
 
 
 def lire(nom, defaut):
@@ -202,7 +202,7 @@ MAX_TWEETS = 4  # au-delà, le reste est laissé de côté (les points les plus 
 
 def pied_de(texte):
     tags = hashtags(texte)
-    sig = lire("signature.txt", [SIGNATURE_DEFAUT])
+    sig = [l for l in lire("signature.txt", [SIGNATURE_DEFAUT]) if l]
     pied = ([" ".join(tags)] if tags else []) + ([sig[0]] if sig else [])
     return ("\n\n" + "\n".join(pied)) if pied else ""
 
