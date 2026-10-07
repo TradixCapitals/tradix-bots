@@ -1,2 +1,2 @@
-# Ligne ajoutée en bas de chaque brouillon X. Supprime-la pour ne rien ajouter.
-⚡ Le live des marchés en français : lien en bio
+# Ligne ajoutée en bas de chaque brouillon X. Vide = pas de signature.
+# Exemple : ⚡ Le live des marchés en français : lien en bio
