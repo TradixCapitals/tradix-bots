@@ -333,6 +333,7 @@ GROQ_PROMPT = (
     "'Japan: August real wages rise 1.5% YoY - government' -> 'Japon : les salaires réels augmentent de 1,5 % en août sur un an – selon le gouvernement'. "
     "'Tankan: X' = 'Tankan : X' ('Tankan' est l'enquête de la BoJ, ne le traduis pas). '- government' = '– selon le gouvernement'. "
     "Une mention de source à la fin ('- interview source', '- source', '- sources') se traduit '– selon une source' / '– selon des sources'. "
+    "Groupes : 'Yemen's Houthis: X' = 'Les Houthis du Yémen : X' ; 'Saudi-led coalition: X' = 'La coalition menée par l'Arabie saoudite : X'. "
     "Fonctions : 'US VP Vance' = 'Le vice-président américain Vance' ; 'US Treasury Secretary X' = 'Le secrétaire américain au Trésor X' ; "
     "'Saudi FM' = 'Le ministre saoudien des Affaires étrangères' ; 'unclear' = 'reste flou' / 'n'est pas clair' (style court) ; "
     "exemple : 'US VP Vance: unclear how Iran makes decisions - source interview' -> "
@@ -360,13 +361,20 @@ def _groq(text):
     for model in GROQ_MODELS:
         if model in GROQ_DEAD:
             continue
-        body = json.dumps({"model": model, "temperature": 0.2, "max_tokens": 400,
-                           "messages": [{"role": "system", "content": GROQ_PROMPT}, {"role": "user", "content": text}]}).encode()
+        req_body = {"model": model, "temperature": 0.2, "max_tokens": 2000,
+                    "messages": [{"role": "system", "content": GROQ_PROMPT}, {"role": "user", "content": text}]}
+        if "gpt-oss" in model:
+            req_body["reasoning_effort"] = "low"  # moins de « réflexion » = réponse jamais tronquée
+        body = json.dumps(req_body).encode()
         req = urllib.request.Request("https://api.groq.com/openai/v1/chat/completions", data=body, headers={
             "Authorization": f"Bearer {GROQ_KEY}", "Content-Type": "application/json", "User-Agent": UA})
         try:
-            with urllib.request.urlopen(req, timeout=20) as r:
-                out = json.loads(r.read())["choices"][0]["message"]["content"]
+            with urllib.request.urlopen(req, timeout=25) as r:
+                choice = json.loads(r.read())["choices"][0]
+                out = choice["message"]["content"]
+                if choice.get("finish_reason") == "length":  # réponse coupée : on essaie le modèle suivant
+                    last = f"{model}: réponse tronquée"
+                    continue
         except urllib.error.HTTPError as e:
             last = f"{model}: HTTP {e.code}"
             if e.code in (400, 404, 413, 429, 403):  # modèle absent, quota atteint... : on passe au suivant
@@ -375,8 +383,9 @@ def _groq(text):
         out = re.sub(r"<think>.*?</think>", "", out or "", flags=re.S).strip()
         if len(out) > 1 and out[0] in '"\u00AB' and out[-1] in '"\u00BB':  # guillemets autour de toute la phrase
             out = out[1:-1].strip()
-        if out:
+        if out and len(out) >= 0.4 * len(text):  # une traduction n'est jamais 3 fois plus courte que l'original
             return out
+        last = f"{model}: traduction trop courte ({out!r})"
     raise ValueError(last or "aucun modèle Groq disponible")
 
 
