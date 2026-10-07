@@ -31,6 +31,7 @@ X_DIR = os.path.join(HERE, "x")
 TOKEN = os.environ.get("X_DRAFTS_TOKEN", "").strip()
 CHAT_ID = os.environ.get("X_DRAFTS_CHAT_ID", "").strip()
 LIMITE = 280
+X_PAGE = os.environ.get("X_PAGE", "https://tradixcapitals.github.io/tradix-legal/x.html")
 
 HASHTAGS_DEFAUT = [
     "Fed, FOMC, Powell, Réserve fédérale = #Fed",
@@ -138,7 +139,8 @@ def brouillon(message_html, source="", silencieux=False):
         return False
     try:
         texte = tweet(message_html)
-        lien = "https://x.com/intent/post?text=" + urllib.parse.quote(texte, safe="")
+        # Page relais (GitHub Pages) qui ouvre l'app X avec le texte ; le texte reste après « # », jamais envoyé au serveur
+        lien = X_PAGE + "#" + urllib.parse.quote(texte, safe="")
         entete = f"<b>📝 Brouillon X</b>{' · ' + html.escape(source) if source else ''} · {poids(texte)}/{LIMITE}"
         corps = f"{entete}\n\n<blockquote>{html.escape(texte)}</blockquote>"
         ligne = [{"text": "Publier sur X", "url": lien}]
