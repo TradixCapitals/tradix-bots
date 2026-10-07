@@ -95,6 +95,9 @@ def read_feed():
     return data
 
 
+JUNK_RE = re.compile(r"TradingView\.|new\s+\w+\.\w+\(|\{\{|\}\}|container_id|function\s*\(|=>|</?script|^\s*[{}();]+\s*$", re.I)
+
+
 def fetch_items():
     root = ET.fromstring(read_feed())
     items = []
@@ -108,6 +111,7 @@ def fetch_items():
             except Exception:
                 hhmm = ""
             desc = html.unescape(it.findtext("description") or "")  # détails (ex. MOO Imbalance : chiffres par indice)
+            desc = re.sub(r"<(script|style|iframe)\b.*?</\1\s*>", " ", desc, flags=re.I | re.S)  # graphiques TradingView...
             parts = re.split(r"<br\s*/?>|</?li[^>]*>|</?p[^>]*>|</?ul[^>]*>|</?ol[^>]*>|</?div[^>]*>|\n", desc, flags=re.I)
             details = [html.unescape(re.sub(r"<[^>]+>", "", l)).strip(" \u2022\u25AA-") for l in parts]
             title = re.sub(r"^FinancialJuice:\s*", "", title)
@@ -118,7 +122,7 @@ def fetch_items():
             title = re.sub(r"^([^:\d]{2,45}?):\s+(said|says|added|adds|reiterates|reiterated|reportedly|has said)\b",
                            lambda m: f"{m.group(1)} {m.group(2).lower()}", title, flags=re.I)
             items.append({"id": guid, "title": title, "link": link, "time": hhmm,
-                          "details": [d for d in details if d]})
+                          "details": [d for d in details if d and not JUNK_RE.search(d)]})
     return items  # du plus récent au plus ancien
 
 
@@ -334,6 +338,7 @@ GROQ_PROMPT = (
     "'squeeze' (sur un marché, des obligations) = 'pression' / 'tensions' (jamais 'pressurage') ; "
 "'due to' / 'because of' + événement négatif (crises, guerre, chocs) = 'à cause de' (jamais 'grâce à') ; "
     "'focus minds on X' = 'pousser à X' / 'inciter à X' ; "
+    "'WI' (adjudication) = 'when-issued' : 'stops at 5.3% vs. 5.317% WI' = 's'établit à 5,3 % contre 5,317 % attendu (when-issued)' (jamais 'IA') ; "
     "'US' / 'U.S.' = 'États-Unis' ou 'américain' (jamais 'US' en français) ; 'US-Iran talks' = 'pourparlers entre les États-Unis et l'Iran' ; "
     "utilise des traits d'union normaux. "
     "Un titre qui commence par un pays suivi de deux-points garde cette forme : "
