@@ -1,0 +1,4 @@
+# Hashtags généraux ajoutés en plus des hashtags du sujet, pour toucher les traders qui suivent ces mots-clés.
+# Format : MOT DE L'EN-TÊTE = #Tag1 #Tag2   (la première ligne qui correspond gagne ; * = tous les autres tweets)
+CRYPTO = #Crypto #Trading
+* = #Trading #Bourse

@@ -34,6 +34,15 @@ LIMITE = 280
 X_PAGE = os.environ.get("X_PAGE", "https://tradixcapitals.github.io/tradix-legal/x.html")
 
 HASHTAGS_DEFAUT = [
+    "BNS, SNB, Banque nationale suisse = #BNS",
+    "BoE, Banque d'Angleterre, Bailey = #BoE",
+    "BoJ, Banque du Japon, Ueda = #BoJ",
+    "pétrole, brut, OPEP, Brent, WTI = #Pétrole",
+    "droits de douane, tarifs, douanier = #DroitsDeDouane",
+    "dollar, DXY = #Dollar",
+    "chômage, emploi, emplois = #Emploi",
+    "Trump, Maison Blanche = #Trump",
+    "Chine, chinois, Pékin = #Chine",
     "Fed, FOMC, Powell, Réserve fédérale = #Fed",
     "or, gold, XAU = #Or",
     "NFP, emplois non agricoles, payrolls = #NFP",
@@ -88,7 +97,12 @@ def mot_present(mot, texte):
     return re.search(r"(?<![\w#])" + re.escape(mot) + r"(?!\w)", texte, re.I) is not None
 
 
+GENERIQUES_DEFAUT = ["CRYPTO = #Crypto #Trading", "* = #Trading #Bourse"]
+MAX_SUJET = 2  # hashtags liés au sujet, en plus des hashtags généraux
+
+
 def hashtags(texte):
+    """Jusqu'à 2 hashtags liés au sujet (hashtags.txt) + 2 hashtags généraux trading (generiques.txt)."""
     tags = []
     for ligne in lire("hashtags.txt", HASHTAGS_DEFAUT):
         mots, _, tag = ligne.rpartition("=")
@@ -96,9 +110,19 @@ def hashtags(texte):
         if tag and tag not in tags and tag.lower() not in texte.lower() and \
                 any(mot_present(m.strip(), texte) for m in mots.split(",") if m.strip()):
             tags.append(tag)
-        if len(tags) == 2:
+        if len(tags) == MAX_SUJET:
             break
-    return sorted(tags, key=lambda t: t == "#Or")  # le sujet d'abord, #Or en dernier
+    tags.sort(key=lambda t: t == "#Or")  # le sujet d'abord, #Or en dernier
+    entete = texte.split("\n", 1)[0].upper()
+    for ligne in lire("generiques.txt", GENERIQUES_DEFAUT):
+        cle, _, liste = ligne.partition("=")
+        cle = cle.strip().upper()
+        if cle == "*" or cle in entete:
+            for t in liste.split():
+                if t.startswith("#") and t not in tags and t.lower() not in texte.lower():
+                    tags.append(t)
+            break
+    return tags
 
 
 def nettoyer(message_html):
