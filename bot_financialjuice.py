@@ -238,6 +238,9 @@ NON_US = [
 ]
 
 
+WEAK_US = {"treasury", "treasuries", "dollar", "dollars", "yield", "yields", "american"}
+
+
 def is_wanted(title):
     """Si garder.txt contient des entrées, seuls les titres qui en contiennent une sont envoyés.
     Garde-fous : une donnée chiffrée doit être américaine, et un titre sur un autre pays est écarté sauf lien avec les États-Unis."""
@@ -250,9 +253,11 @@ def is_wanted(title):
     other = read_terms(EXCLURE_PATH, NON_US, "Repères des autres marchés",
                        "Un titre qui contient l'un de ces mots est écarté, sauf s'il contient aussi un repère du marché suivi.")
     us = has_term(strong, title)
+    # 'Treasury', 'dollar'... ne suffisent pas : 'Nigeria : bons du Trésor', 'yuan face au dollar' ne sont pas américains
+    us_strict = has_term([x for x in strong if x.lower() not in WEAK_US], title)
     if BLOCK_PARTS.search(title) and not us:  # donnée chiffrée sans marqueur américain (ex. PPI zone euro)
         return False
-    if has_term(other, title) and not us:  # autre pays, sans lien avec les États-Unis
+    if has_term(other, title) and not us_strict:  # autre pays, sans lien avec les États-Unis
         return False
     return has_term(terms + strong, title)
 

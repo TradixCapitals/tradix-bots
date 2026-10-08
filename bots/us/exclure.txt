@@ -59,3 +59,30 @@ Portugal
 Greece
 Ireland
 Finland
+# Autres pays et banques centrales étrangères
+China
+Chinese
+PBOC
+PBoC
+yuan
+CNY
+CNH
+Central Bank of
+Nigeria
+Nigerian
+South Africa
+Africa
+Egypt
+Kenya
+Indonesia
+Philippines
+Thailand
+Vietnam
+Malaysia
+Pakistan
+Hong Kong
+Singapore
+Argentina
+Chile
+Colombia
+Peru
