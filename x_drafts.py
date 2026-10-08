@@ -370,7 +370,7 @@ def tg_fichier(methode, champ, nom, contenu, type_mime, **params):
             return {"ok": False, "description": f"HTTP {e.code}"}
 
 
-VISUELS = os.environ.get("X_VISUELS", "oui").lower() != "non"  # GIF animé pour les données chiffrées
+VISUELS = os.environ.get("X_VISUELS", "non").lower() == "oui"  # visuels faits à la main (GIF), désactivés ici
 
 
 def visuel_pour(texte, source):
