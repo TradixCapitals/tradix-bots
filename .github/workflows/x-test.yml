@@ -14,6 +14,9 @@ jobs:
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
+
+      - name: Installer Pillow (visuels des brouillons X)
+        run: pip install --quiet pillow || true
       - name: Envoyer 5 brouillons de test
         env:
           X_DRAFTS_TOKEN: ${{ secrets.X_DRAFTS_TOKEN }}

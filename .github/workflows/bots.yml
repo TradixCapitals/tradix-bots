@@ -28,6 +28,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Installer Pillow (visuels des brouillons X)
+        run: pip install --quiet pillow || true
+
       - name: Restaurer la mémoire des titres déjà envoyés
         uses: actions/cache/restore@v4
         with:

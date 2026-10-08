@@ -23,6 +23,7 @@ import os
 import re
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -347,6 +348,47 @@ def brouillon(message_html, source="", silencieux=False):
     return ok
 
 
+def tg_fichier(methode, champ, nom, contenu, type_mime, **params):
+    """Envoi d'un fichier à Telegram (multipart, sans dépendance)."""
+    limite = "----tradix" + str(int(time.time() * 1000))
+    morceaux = []
+    for k, v in params.items():
+        morceaux.append(f'--{limite}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode())
+    morceaux.append(f'--{limite}\r\nContent-Disposition: form-data; name="{champ}"; filename="{nom}"\r\n'
+                    f'Content-Type: {type_mime}\r\n\r\n'.encode() + contenu + b"\r\n")
+    morceaux.append(f"--{limite}--\r\n".encode())
+    req = urllib.request.Request(f"https://api.telegram.org/bot{TOKEN}/{methode}", data=b"".join(morceaux),
+                                 headers={"Content-Type": f"multipart/form-data; boundary={limite}",
+                                          "User-Agent": "Mozilla/5.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as e:
+        try:
+            return json.loads(e.read().decode("utf-8", "replace"))
+        except ValueError:
+            return {"ok": False, "description": f"HTTP {e.code}"}
+
+
+VISUELS = os.environ.get("X_VISUELS", "oui").lower() != "non"  # GIF animé pour les données chiffrées
+
+
+def visuel_pour(texte, source):
+    """GIF animé Tradix si le tweet est une donnée chiffrée (Publié / Prévu), sinon None."""
+    if not VISUELS:
+        return None
+    try:
+        import x_visuel
+        marche = (source or "US").split()[0]
+        info = x_visuel.analyser(texte, marche)
+        if not info:
+            return None
+        return x_visuel.fabriquer(info, marche)
+    except Exception as e:  # Pillow absent, police manquante... : on envoie le brouillon sans visuel
+        print("Visuel X impossible :", e, flush=True)
+        return None
+
+
 def envoyer_brouillon(texte, source, silencieux):
     try:
         # Page relais (GitHub Pages) qui ouvre l'app X avec le texte ; le texte reste après « # », jamais envoyé au serveur
@@ -357,10 +399,20 @@ def envoyer_brouillon(texte, source, silencieux):
         if len(texte) <= 256:  # limite Telegram du bouton « copier »
             ligne.insert(0, {"text": "Copier le tweet", "copy_text": {"text": texte}})
         bouton = json.dumps({"inline_keyboard": [ligne]})
+        gif = visuel_pour(texte, source)
         for _ in range(3):
-            r = tg("sendMessage", chat_id=CHAT_ID, text=corps, parse_mode="HTML",
-                   disable_web_page_preview="true", reply_markup=bouton,
-                   disable_notification="true" if silencieux else "false")
+            if gif:
+                r = tg_fichier("sendAnimation", "animation", "tradix.gif", gif, "image/gif", chat_id=CHAT_ID,
+                               caption=corps, parse_mode="HTML", reply_markup=bouton, width=1000, height=563,
+                               disable_notification="true" if silencieux else "false")
+                if not r.get("ok") and not (r.get("parameters") or {}).get("retry_after"):
+                    print("Visuel refusé par Telegram, envoi du texte seul :", r.get("description"), flush=True)
+                    gif = None
+                    continue
+            else:
+                r = tg("sendMessage", chat_id=CHAT_ID, text=corps, parse_mode="HTML",
+                       disable_web_page_preview="true", reply_markup=bouton,
+                       disable_notification="true" if silencieux else "false")
             if r.get("ok"):
                 return True
             attente = (r.get("parameters") or {}).get("retry_after")
@@ -382,8 +434,8 @@ TESTS = [
            "<i>• Le marché du travail montre des signes de ralentissement progressif</i>\n" + "─" * 14),
     ("US", "\U0001F6A8 <b>ALERTE IRAN · ORMUZ</b> \U0001F6A8\n" + "━" * 14 +
            "\n<b><i>L'Iran affirme qu'il répondra à toute attaque contre ses installations pétrolières</i></b>\n" + "━" * 14),
-    ("EUR", "\U0001F534 <b><u>Lagarde</u> :</b>\n\n<i>La BCE n'est pas pressée de baisser à nouveau ses taux</i>\n"
-            + "─" * 14),
+    ("EUR", "\U0001F534 \U0001F1EA\U0001F1FA <b><u>INFLATION (IPCH) ANNUELLE</u></b>\n\n<b><i>Publié : 2,4%</i></b> \u25B2\n"
+            "<i>Prévu : 2,2% \u00B7 Précédent : 2,1%</i>\n" + "\u2500" * 14),
     ("Crypto Alerts", "\U0001F6A8 <b>ALERTE BTC</b> \U0001F6A8\n━━━━━━━━━━━━━━━━\n<i>▲ Hausse de <b>4,2 %</b> en 1 h\n"
                       "Prix : <b>124 500 $</b> · 24 h : <b>+5,1 %</b></i>\n━━━━━━━━━━━━━━━━"),
 ]
