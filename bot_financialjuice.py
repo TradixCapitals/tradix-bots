@@ -152,7 +152,7 @@ def send(text, silent=False):
         r = tg("sendMessage", chat_id=CHAT_ID, text=text, parse_mode="HTML", disable_web_page_preview="true",
                disable_notification="true" if silent else "false")
         if r.get("ok"):
-            return True
+            return (r.get("result") or {}).get("message_id") or True  # identifiant du message (pour le modifier ensuite)
         wait = (r.get("parameters") or {}).get("retry_after")
         if r.get("http") == 429 and wait:
             time.sleep(int(wait) + 1)
@@ -885,15 +885,119 @@ def alertify(text, original):
 def load_seen():
     if os.path.exists(SEEN_PATH):
         try:
-            return json.load(open(SEEN_PATH, encoding="utf-8"))
+            data = json.load(open(SEEN_PATH, encoding="utf-8"))
         except ValueError:
-            pass
+            return None
+        ids = []
+        for x in data:
+            if isinstance(x, str) and x.startswith(DIGEST_KEY):  # état du résumé (rangé avec les titres déjà vus)
+                try:
+                    DIGEST.clear(); DIGEST.update(json.loads(x[len(DIGEST_KEY):]))
+                except ValueError:
+                    pass
+            else:
+                ids.append(x)
+        return ids
     return None
 
 
 def save_seen(ids):
+    out = [x for x in ids if not (isinstance(x, str) and x.startswith(DIGEST_KEY))][-KEEP:]
+    if DIGEST:
+        out.append(DIGEST_KEY + json.dumps(DIGEST, ensure_ascii=False))
     with open(SEEN_PATH, "w", encoding="utf-8") as f:
-        json.dump(ids[-KEEP:], f)
+        json.dump(out, f)
+
+
+# ---------- Résumé des annonces secondaires (moins de notifications) ----------
+DIGEST_KEY = "__resume__:"
+DIGEST = {}
+RESUME = CFG.get("RESUME", "oui").lower() != "non"  # 'non' dans config.env = ancien fonctionnement (tout en direct)
+try:
+    from zoneinfo import ZoneInfo
+    PARIS = ZoneInfo("Europe/Paris")
+except Exception:  # Python trop ancien : heure du système
+    PARIS = None
+
+
+def now_paris():
+    import datetime as _dt
+    return _dt.datetime.now(PARIS) if PARIS else _dt.datetime.now()
+
+
+def is_night(d):
+    return d.hour >= 22 or d.hour < 7
+
+
+def compact(text):
+    """Message complet -> une ligne pour le résumé."""
+    lines = [l.strip() for l in text.split("\n") if l.strip() and l.strip() not in (SEP, LINE)]
+    out = ""
+    for l in lines:
+        out = l if not out else out + (" " if out.endswith(":") or out.endswith(":</b>") else " \u00B7 ") + l
+    return out
+
+
+def digest_text(head, lines):
+    return head + "\n\n" + "\n\n".join(lines)
+
+
+def digest_add(text):
+    """Annonce secondaire : ajoutée au résumé de la demi-heure (un seul message, modifié en direct = une notification),
+    ou, la nuit (22h-7h), gardée pour le résumé du matin."""
+    d = now_paris()
+    line = compact(text)
+    if is_night(d):
+        DIGEST.setdefault("night", []).append(line)
+        return True
+    slot = f"{d:%Y-%m-%d} {d.hour:02d}h{'00' if d.minute < 30 else '30'}"
+    head = f"\U0001F4CB <b>Le point de {slot[11:]}</b>"
+    if DIGEST.get("slot") != slot:
+        DIGEST.update(slot=slot, msg=None, lines=[], part=1)
+    if len(digest_text(head, DIGEST["lines"] + [line])) > 3800:  # message trop long : on en commence un autre
+        DIGEST.update(msg=None, lines=[], part=DIGEST.get("part", 1) + 1)
+    if DIGEST.get("part", 1) > 1:
+        head += " (suite)"
+    DIGEST["lines"].append(line)
+    body = digest_text(head, DIGEST["lines"])
+    if DIGEST.get("msg"):
+        r = tg("editMessageText", chat_id=CHAT_ID, message_id=DIGEST["msg"], text=body, parse_mode="HTML",
+               disable_web_page_preview="true")
+        if r.get("ok") or "not modified" in str(r.get("description", "")):
+            return True
+        log(f"Résumé non modifiable ({r.get('description')}) : nouveau message.")
+    mid = send(body, silent=True)
+    if mid:
+        DIGEST["msg"] = mid if mid is not True else None
+        return True
+    DIGEST["lines"].pop()
+    return False
+
+
+def digest_morning(seen):
+    """Après 7h : envoie en un message (ou plusieurs si très long) tout ce qui est arrivé pendant la nuit."""
+    if not DIGEST.get("night") or is_night(now_paris()):
+        return
+    head = "\U0001F319 <b>La nuit sur les marchés</b>"
+    chunk = []
+    for line in DIGEST["night"] + [None]:
+        if line is None or len(digest_text(head, chunk + [line])) > 3800:
+            if chunk and not send(digest_text(head, chunk), silent=True):
+                return  # réessai au prochain tour
+            DIGEST["night"] = DIGEST["night"][len(chunk):]
+            chunk = []
+        if line is not None:
+            chunk.append(line)
+    DIGEST.pop("night", None)
+    save_seen(seen)
+    log("Résumé de la nuit envoyé.")
+
+
+def deliver(text, loud):
+    """Annonce importante / alerte : en direct avec notification. Le reste : dans le résumé."""
+    if loud or not RESUME:
+        return send(text, silent=SILENCIEUX and not loud)
+    return digest_add(text)
 
 
 def need_env(*names):
@@ -952,6 +1056,8 @@ def run():
                 save_seen(seen)
                 log(f"Premier lancement : {len(seen)} titres existants ignorés, j'envoie les suivants.")
             else:
+                if RESUME:
+                    digest_morning(seen)
                 known = set(seen)
                 new = [i for i in reversed(items) if i["id"] not in known]
                 pending = []  # discours en cours de regroupement : (titre, nom, déclaration, important)
@@ -966,7 +1072,7 @@ def run():
                             group.append(pending.pop(0))
                         imp = any(g[3] for g in group)
                         msg, alerte = alertify(fmt_speech(group), " ".join(g[0]["title"] for g in group))
-                        if send(msg, silent=SILENCIEUX and not imp and not alerte):
+                        if deliver(msg, imp or alerte):
                             if imp or alerte:
                                 x_drafts.brouillon(msg, X_SOURCE)
                             seen.extend(g[0]["id"] for g in group)
@@ -1006,7 +1112,7 @@ def run():
                             break  # on garde l'ordre : on réessaiera ce titre
                         text = fmt(it, english=True)  # dernier recours : le titre en anglais
                     text, alerte = alertify(text, full_text(it))
-                    if send(text, silent=SILENCIEUX and not is_important(full_text(it)) and not alerte):
+                    if deliver(text, is_important(full_text(it)) or alerte):
                         if alerte or is_important(full_text(it)):
                             x_drafts.brouillon(text, X_SOURCE)
                         seen.append(it["id"])
