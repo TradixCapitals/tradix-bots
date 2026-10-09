@@ -925,8 +925,12 @@ def now_paris():
     return _dt.datetime.now(PARIS) if PARIS else _dt.datetime.now()
 
 
+# Mode nuit (22h-7h : résumé au réveil) : pas pour le canal Asie, dont les marchés vivent justement la nuit
+NUIT = CFG.get("NUIT", "non" if os.path.basename(os.path.normpath(BOT_DIR)).lower() in ("asia", "tradixasia") else "oui").lower() != "non"
+
+
 def is_night(d):
-    return d.hour >= 22 or d.hour < 7
+    return NUIT and (d.hour >= 22 or d.hour < 7)
 
 
 def compact(text):
