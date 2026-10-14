@@ -71,6 +71,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Réveiller les newsletters aux heures de publication (CPI, NFP, FOMC)
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          GH_TOKEN: ${{ secrets.NEWSLETTER_TOKEN }}
+        run: python3 reveil_newsletters.py
+
       - name: Relancer
         env:
           GH_TOKEN: ${{ github.token }}
